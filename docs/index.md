@@ -3,7 +3,7 @@
 > **A vendor-neutral framework for AI-assisted delivery.**
 
 [![GitHub Release](https://img.shields.io/github/v/release/scanalesespinoza/adev?style=for-the-badge&color=blue)](https://github.com/scanalesespinoza/adev/releases)
-[![License](https://img.shields.io/github/license/scanalesespinoza/adev?style=for-the-badge)](LICENSE)
+[![License](https://img.shields.io/github/license/scanalesespinoza/adev?style=for-the-badge)](https://github.com/scanalesespinoza/adev/blob/main/LICENSE)
 
 ## What is A-Dev?
 **A-Dev (Augmented Development)** is a discipline-first framework for practitioners, maintainers, and teams to orchestrate interchangeable AI assistants. It reduces coordination tax with living baselines, short quality cycles, and strict evidence trails.
