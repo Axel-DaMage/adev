@@ -1,0 +1,42 @@
+schema_version: "1.0.0"
+metadata:
+  name: "repo-frontend-app"
+  scope: "repository"
+  version: "1.1.0"
+  description: "Frontend repository specialization: tighter coverage and extra protected paths"
+  owner: "frontend-team"
+  last_updated: "2026-08-01"
+
+extends:
+  baseline: "org/.github/.ai-sdlc.yaml"
+  version: ">=1.0.0"
+  mode: "fail_closed"
+
+security_gates:
+  branch_protection:
+    require_reviews_min: 2
+  protected_paths:
+    - "src/auth/**"
+
+agent_authority:
+  max_autonomous_risk_level: "low_risk_write"
+  allowed_tools:
+    - "read_file"
+    - "write_file"
+    - "edit_file"
+    - "list_dir"
+    - "search_text"
+    - "code_query"
+  forbidden_tools:
+    - "docker_socket_attach"
+
+quality_floors:
+  test_enforcement:
+    min_coverage_percent: 85.0
+  atomic_iterations:
+    max_diff_lines_per_iteration: 300
+    max_files_per_iteration: 10
+
+review_and_audit:
+  audit:
+    retention_min_days: 180

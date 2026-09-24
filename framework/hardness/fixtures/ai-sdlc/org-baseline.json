@@ -1,0 +1,90 @@
+{
+  "schema_version": "1.0.0",
+  "metadata": {
+    "name": "org-fleet-baseline",
+    "scope": "organization",
+    "version": "1.0.0",
+    "description": "Organizational AI SDLC Baseline Policy for Fleet Operations",
+    "owner": "platform-security",
+    "last_updated": "2026-08-01"
+  },
+  "security_gates": {
+    "secrets_scanning": {
+      "enabled": true,
+      "block_on_detect": true
+    },
+    "vulnerability_threshold": {
+      "max_allowed_severity": "medium",
+      "block_pr_on_floor": true
+    },
+    "admin_bypass_forbidden": true,
+    "branch_protection": {
+      "require_reviews_min": 1,
+      "block_force_push": true,
+      "require_linear_history": true
+    },
+    "protected_paths": [
+      ".github/workflows/**",
+      "SECURITY.md",
+      ".ai-sdlc.yaml"
+    ],
+    "sandbox_isolation": {
+      "required": true,
+      "min_isolation_level": "container"
+    }
+  },
+  "agent_authority": {
+    "max_autonomous_risk_level": "medium_risk_write",
+    "require_human_approval_for_risk_ge": "high_risk_write",
+    "allowed_tools": [
+      "read_file",
+      "write_file",
+      "edit_file",
+      "list_dir",
+      "search_text",
+      "run_shell",
+      "git",
+      "code_query"
+    ],
+    "forbidden_tools": [
+      "network_raw_socket",
+      "bypass_security_tool"
+    ],
+    "network_access": {
+      "allowed_domains": [
+        "github.com",
+        "registry.npmjs.org",
+        "pypi.org"
+      ],
+      "forbidden_domains": [
+        "untrusted-proxy.internal",
+        "pastebin.com"
+      ]
+    }
+  },
+  "quality_floors": {
+    "test_enforcement": {
+      "require_tests_for_new_features": true,
+      "min_coverage_percent": 80.0
+    },
+    "verification": {
+      "require_clean_reproduction": true,
+      "reproduction_command_required": true
+    },
+    "atomic_iterations": {
+      "max_diff_lines_per_iteration": 500,
+      "max_files_per_iteration": 20
+    }
+  },
+  "review_and_audit": {
+    "pr_review_workflow": {
+      "enforce_5_step_review": true,
+      "require_impact_analysis": true
+    },
+    "audit": {
+      "structured_logging_enabled": true,
+      "retention_min_days": 90,
+      "record_prompts_and_tool_calls": true
+    }
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "schema_version": "1.0.0",
+  "metadata": {
+    "name": "repo-frontend-app",
+    "scope": "repository",
+    "version": "1.1.0",
+    "description": "Frontend repository specialization: tighter coverage and extra protected paths",
+    "owner": "frontend-team",
+    "last_updated": "2026-08-01"
+  },
+  "extends": {
+    "baseline": "org/.github/.ai-sdlc.yaml",
+    "version": ">=1.0.0",
+    "mode": "fail_closed"
+  },
+  "security_gates": {
+    "secrets_scanning": {
+      "enabled": true,
+      "block_on_detect": true
+    },
+    "vulnerability_threshold": {
+      "max_allowed_severity": "medium",
+      "block_pr_on_floor": true
+    },
+    "admin_bypass_forbidden": true,
+    "branch_protection": {
+      "require_reviews_min": 2,
+      "block_force_push": true,
+      "require_linear_history": true
+    },
+    "protected_paths": [
+      ".github/workflows/**",
+      "SECURITY.md",
+      ".ai-sdlc.yaml",
+      "src/auth/**"
+    ],
+    "sandbox_isolation": {
+      "required": true,
+      "min_isolation_level": "container"
+    }
+  },
+  "agent_authority": {
+    "max_autonomous_risk_level": "low_risk_write",
+    "require_human_approval_for_risk_ge": "high_risk_write",
+    "allowed_tools": [
+      "read_file",
+      "write_file",
+      "edit_file",
+      "list_dir",
+      "search_text",
+      "code_query"
+    ],
+    "forbidden_tools": [
+      "network_raw_socket",
+      "bypass_security_tool",
+      "docker_socket_attach"
+    ],
+    "network_access": {
+      "allowed_domains": [
+        "github.com",
+        "registry.npmjs.org",
+        "pypi.org"
+      ],
+      "forbidden_domains": [
+        "untrusted-proxy.internal",
+        "pastebin.com"
+      ]
+    }
+  },
+  "quality_floors": {
+    "test_enforcement": {
+      "require_tests_for_new_features": true,
+      "min_coverage_percent": 85.0
+    },
+    "verification": {
+      "require_clean_reproduction": true,
+      "reproduction_command_required": true
+    },
+    "atomic_iterations": {
+      "max_diff_lines_per_iteration": 300,
+      "max_files_per_iteration": 10
+    }
+  },
+  "review_and_audit": {
+    "pr_review_workflow": {
+      "enforce_5_step_review": true,
+      "require_impact_analysis": true
+    },
+    "audit": {
+      "structured_logging_enabled": true,
+      "retention_min_days": 180,
+      "record_prompts_and_tool_calls": true
+    }
+  }
+}

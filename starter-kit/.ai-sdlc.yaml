@@ -1,0 +1,59 @@
+# A-Dev AI SDLC Repository Policy Template
+# Place this file at repository root (`.ai-sdlc.yaml`) or `.github/.ai-sdlc.yaml`.
+# This configuration inherits organizational safety floors and specifies repository overrides.
+
+schema_version: "1.0.0"
+metadata:
+  name: "repo-policy-template"
+  scope: "repository"
+  version: "1.0.0"
+  description: "Repository AI SDLC Policy extending organizational baseline"
+  owner: "repository-lead"
+  last_updated: "2026-08-01"
+
+# Inheritance directive referencing organizational baseline
+extends:
+  baseline: "org/.github/.ai-sdlc.yaml"
+  version: ">=1.0.0"
+  mode: "fail_closed" # "fail_closed" (block on floor violation) | "clamp_and_warn"
+
+# Repository-specific security gate specializations
+security_gates:
+  branch_protection:
+    require_reviews_min: 1 # Must be >= org floor
+  protected_paths:
+    # Org-level protected paths are automatically preserved; add repo-specific paths below:
+    - ".ai-sdlc.yaml"
+    - "docs/evidence/**"
+
+# Agent authority configuration
+agent_authority:
+  max_autonomous_risk_level: "low_risk_write" # Must be <= org ceiling
+  # Tool permissions: can only select a subset of org-allowed tools
+  allowed_tools:
+    - "read_file"
+    - "write_file"
+    - "edit_file"
+    - "list_dir"
+    - "search_text"
+    - "run_shell"
+    - "git"
+    - "code_query"
+
+# Quality floors: can only tighten (increase) strictness
+quality_floors:
+  test_enforcement:
+    require_tests_for_new_features: true
+    min_coverage_percent: 80.0 # Must be >= org floor
+  atomic_iterations:
+    max_diff_lines_per_iteration: 500 # Must be <= org ceiling
+    max_files_per_iteration: 20
+
+# Review and audit requirements
+review_and_audit:
+  pr_review_workflow:
+    enforce_5_step_review: true
+    require_impact_analysis: true
+  audit:
+    structured_logging_enabled: true
+    retention_min_days: 90
