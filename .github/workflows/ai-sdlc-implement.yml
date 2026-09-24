@@ -1,0 +1,219 @@
+name: ai-sdlc-implement
+
+# Reusable implementation stage of the AI-SDLC pipeline (epic #34 / issue #66).
+# Consumers call this with:
+#
+#   jobs:
+#     implement:
+#       uses: Axel-DaMage/adev/.github/workflows/ai-sdlc-implement.yml@v1
+#       with:
+#         issue-number: ${{ github.event.issue.number }}
+#       secrets:
+#         SC_API_KEY: ${{ secrets.SC_API_KEY }}
+#         SC_BASE_URL: ${{ secrets.SC_BASE_URL }}   # optional
+#
+# Git boundary: scc edits files only (--no-commit when available); this
+# workflow owns branch/commit/push/PR — the agent never touches git state.
+
+on:
+  workflow_call:
+    inputs:
+      issue-number:
+        description: 'Issue to implement'
+        required: true
+        type: number
+      scc-ref:
+        description: 'sc-agent-cli git ref to install (pin for reproducibility)'
+        required: false
+        type: string
+        default: 'main'
+      model:
+        description: 'Model name passed to scc'
+        required: false
+        type: string
+        default: 'auto/best-coding'
+      base-branch:
+        description: 'Branch to fork the work branch from'
+        required: false
+        type: string
+        default: 'main'
+      max-seconds:
+        description: 'Wall-clock budget for the agent run (0 = unbounded)'
+        required: false
+        type: number
+        default: 900
+      max-steps:
+        description: 'Tool-execution budget for the agent run (0 = unbounded)'
+        required: false
+        type: number
+        default: 60
+      timeout-minutes:
+        description: 'Hard job timeout — must exceed max-seconds'
+        required: false
+        type: number
+        default: 25
+    secrets:
+      SC_API_KEY:
+        description: 'API key for the model provider'
+        required: true
+      SC_BASE_URL:
+        description: 'OpenAI-compatible endpoint (e.g. OmniRoute); provider default if unset'
+        required: false
+
+env:
+  SC_API_KEY: ${{ secrets.SC_API_KEY }}
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    concurrency:
+      group: ai-sdlc-issue-${{ github.repository }}-${{ inputs.issue-number }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.base-branch }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Fetch issue (REST — GraphQL-independent)
+        id: issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api "repos/${{ github.repository }}/issues/${{ inputs.issue-number }}" \
+            --jq '{title: .title, body: .body, labels: [.labels[].name]}' > /tmp/issue.json
+          cat /tmp/issue.json
+
+      - name: Skip when an implementation branch/PR already exists
+        id: dedup
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          existing=$(gh api "repos/${{ github.repository }}/pulls?state=open&per_page=100" \
+            --jq "[.[] | select(.head.ref | test(\"issue-${{ inputs.issue-number }}-\"))] | .[0].html_url // empty")
+          echo "existing=$existing" >> "$GITHUB_OUTPUT"
+
+      - name: Install scc
+        if: steps.dedup.outputs.existing == ''
+        run: |
+          git clone --depth 1 --branch "${{ inputs.scc-ref }}" \
+            https://github.com/os-santiago/sc-agent-cli.git /opt/scc
+          cd /opt/scc && npm ci && npm run build && npm link
+          scc --version
+
+      - name: Write agent config
+        if: steps.dedup.outputs.existing == ''
+        run: |
+          mkdir -p "$HOME/.sc-agent"
+          cat > "$HOME/.sc-agent/config.json" <<EOF
+          {"model":{"provider":"openai-compatible","model":"${{ inputs.model }}",
+           "apiKey":"${{ secrets.SC_API_KEY }}",
+           "baseUrl":"${{ secrets.SC_BASE_URL || 'https://api.openai.com/v1' }}",
+           "stream":true},
+           "permissions":{"autoApprove":["read_file","list_dir","search_text","web_fetch",
+            "memory_read","write_file","edit_file","run_shell","git","memory_write"]}}
+          EOF
+
+      - name: Build prompt file
+        if: steps.dedup.outputs.existing == ''
+        run: |
+          {
+            echo "You are an autonomous implementation worker inside GitHub Actions."
+            echo "Repository: ${{ github.repository }}  Issue: #${{ inputs.issue-number }}"
+            echo ""
+            echo "## Issue"
+            cat /tmp/issue.json | jq -r '.title, "", .body // ""'
+            echo ""
+            echo "## Contract"
+            echo "- Implement the issue end-to-end in this checkout."
+            echo "- Run the repo's own verification (install/build/test) before finishing."
+            echo "- Do NOT commit, push, or open PRs — git state is managed by the workflow."
+            echo "- If the issue is underspecified, make the smallest reasonable change and note assumptions."
+          } > /tmp/prompt.txt
+
+      - name: Run agent (feature-detected flags)
+        id: agent
+        if: steps.dedup.outputs.existing == ''
+        run: |
+          FLAGS=""
+          HELP=$(scc chat --help 2>&1 || true)
+          for val in "--no-commit" "--audit-log /tmp/audit.jsonl" \
+                     "--summary-file /tmp/run.json" \
+                     "--max-seconds ${{ inputs.max-seconds }}" \
+                     "--max-steps ${{ inputs.max-steps }}" \
+                     "--output-format json"; do
+            echo "$HELP" | grep -q -- "${val%% *}" && FLAGS="$FLAGS $val"
+          done
+          echo "scc flags: $FLAGS" >&2
+          set +e
+          if echo "$HELP" | grep -q -- "--prompt-file"; then
+            scc chat -yq $FLAGS --prompt-file /tmp/prompt.txt > /tmp/scc.out 2>/tmp/scc.err
+          else
+            # older scc pins: positional prompt arg
+            scc chat -yq $FLAGS "$(cat /tmp/prompt.txt)" > /tmp/scc.out 2>/tmp/scc.err
+          fi
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          set -e
+          tail -5 /tmp/scc.out; tail -5 /tmp/scc.err >&2
+
+      - name: Upload run artifacts
+        if: always() && steps.dedup.outputs.existing == ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-sdlc-issue-${{ inputs.issue-number }}
+          path: |
+            /tmp/run.json
+            /tmp/audit.jsonl
+            /tmp/scc.out
+            /tmp/scc.err
+          if-no-files-found: ignore
+
+      - name: Branch, commit, push, PR
+        if: steps.dedup.outputs.existing == ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "ai-sdlc[bot]"
+          git config user.email "ai-sdlc[bot]@users.noreply.github.com"
+          if git diff --quiet && git diff --cached --quiet && [ -z "$(git status --porcelain)" ]; then
+            echo "NO_CHANGES" >> "$GITHUB_STEP_SUMMARY"
+            gh api "repos/${{ github.repository }}/issues/${{ inputs.issue-number }}/comments" \
+              -f body="🤖 AI-SDLC: agent run completed with no file changes (exit ${{ steps.agent.outputs.exit_code }}). Marking for review." || true
+            exit 0
+          fi
+          branch="feat/issue-${{ inputs.issue-number }}-$(date +%s | sha256sum | head -c 6)"
+          git checkout -b "$branch"
+          git add -A
+          git commit -m "$(cat <<EOF
+          feat: implement issue #${{ inputs.issue-number }}
+
+          $(cat /tmp/issue.json | jq -r '.title')
+
+          Generated by ai-sdlc-implement workflow.
+          EOF
+          )"
+          git push -u origin "$branch"
+          # REST endpoint — survives GraphQL secondary rate limits
+          gh api "repos/${{ github.repository }}/pulls" -X POST \
+            -f title="$(cat /tmp/issue.json | jq -r '.title')" \
+            -f head="$branch" -f base="${{ inputs.base-branch }}" \
+            -f body="Closes #${{ inputs.issue-number}}
+
+Automated implementation via ai-sdlc-implement (epic #34)." --jq '.html_url'
+
+      - name: Report outcome to issue
+        if: always() && steps.dedup.outputs.existing == ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          summary=$(cat /tmp/run.json 2>/dev/null | jq -c '{exit_reason, iterations, tool_calls_total, duration_ms}' || echo '{}')
+          gh api "repos/${{ github.repository }}/issues/${{ inputs.issue-number }}/comments" \
+            -f body="🤖 AI-SDLC run finished — exit \`${{ steps.agent.outputs.exit_code }}\`, manifest \`${summary}\`. Artifacts attached to this workflow run." || true
