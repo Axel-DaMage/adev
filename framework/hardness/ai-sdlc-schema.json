@@ -1,0 +1,299 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "A-Dev Hardness AI SDLC Policy Configuration (.ai-sdlc.yaml)",
+  "description": "Vendor-neutral structural contract for organization-wide baseline and repository-level AI SDLC policy configurations.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "metadata"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "scope",
+        "version",
+        "owner"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "organization",
+            "repository",
+            "group"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "description": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "last_updated": {
+          "type": "string"
+        }
+      }
+    },
+    "extends": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "baseline": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "fail_closed",
+            "clamp_and_warn"
+          ]
+        }
+      }
+    },
+    "security_gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "secrets_scanning": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "block_on_detect": {
+              "type": "boolean"
+            }
+          }
+        },
+        "vulnerability_threshold": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_allowed_severity": {
+              "type": "string",
+              "enum": [
+                "none",
+                "low",
+                "medium",
+                "high",
+                "critical"
+              ]
+            },
+            "block_pr_on_floor": {
+              "type": "boolean"
+            }
+          }
+        },
+        "admin_bypass_forbidden": {
+          "type": "boolean"
+        },
+        "branch_protection": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "require_reviews_min": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "block_force_push": {
+              "type": "boolean"
+            },
+            "require_linear_history": {
+              "type": "boolean"
+            }
+          }
+        },
+        "protected_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "sandbox_isolation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "required": {
+              "type": "boolean"
+            },
+            "min_isolation_level": {
+              "type": "string",
+              "enum": [
+                "process",
+                "container",
+                "vm"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "agent_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_autonomous_risk_level": {
+          "type": "string",
+          "enum": [
+            "read_only",
+            "low_risk_write",
+            "medium_risk_write",
+            "high_risk_write",
+            "unrestricted"
+          ]
+        },
+        "require_human_approval_for_risk_ge": {
+          "type": "string",
+          "enum": [
+            "read_only",
+            "low_risk_write",
+            "medium_risk_write",
+            "high_risk_write",
+            "unrestricted"
+          ]
+        },
+        "allowed_tools": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "forbidden_tools": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "network_access": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "allowed_domains": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "forbidden_domains": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "quality_floors": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "test_enforcement": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "require_tests_for_new_features": {
+              "type": "boolean"
+            },
+            "min_coverage_percent": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            }
+          }
+        },
+        "verification": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "require_clean_reproduction": {
+              "type": "boolean"
+            },
+            "reproduction_command_required": {
+              "type": "boolean"
+            }
+          }
+        },
+        "atomic_iterations": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_diff_lines_per_iteration": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max_files_per_iteration": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      }
+    },
+    "review_and_audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pr_review_workflow": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enforce_5_step_review": {
+              "type": "boolean"
+            },
+            "require_impact_analysis": {
+              "type": "boolean"
+            }
+          }
+        },
+        "audit": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "structured_logging_enabled": {
+              "type": "boolean"
+            },
+            "retention_min_days": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "record_prompts_and_tool_calls": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}
