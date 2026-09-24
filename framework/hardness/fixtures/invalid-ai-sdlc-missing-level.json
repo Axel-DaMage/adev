@@ -1,0 +1,55 @@
+{
+  "version": "1.0.0",
+  "repository": "Axel-DaMage/adev",
+  "trust_ladder": {
+    "target_level": "auto-merge-low",
+    "evaluation_window": {
+      "min_pull_requests": 20,
+      "min_days": 14
+    },
+    "promotion_gates": {
+      "min_merge_success_rate": 0.90,
+      "max_revert_rate": 0.00,
+      "max_escalation_rate": 0.05,
+      "min_ci_first_pass_rate": 0.85,
+      "min_policy_conformance_rate": 1.00
+    },
+    "demotion_triggers": {
+      "max_revert_rate_slo": 0.02,
+      "max_consecutive_failures": 2,
+      "max_escalation_rate_slo": 0.10,
+      "instant_demotion_on_security_breach": true,
+      "demote_to_level": "suggest"
+    },
+    "rehabilitation": {
+      "cooldown_days": 7,
+      "required_clean_runs": 10,
+      "requires_human_signoff": true
+    }
+  },
+  "risk_boundaries": {
+    "low_risk_paths": [
+      "docs/**"
+    ],
+    "high_risk_paths": [
+      ".github/workflows/**"
+    ],
+    "protected_branches": [
+      "main"
+    ]
+  },
+  "automated_merge_rules": {
+    "require_all_ci_passing": true,
+    "require_zero_blocking_reviews": true,
+    "require_no_unresolved_comments": true,
+    "allowed_merge_methods": [
+      "squash"
+    ],
+    "delete_branch_after_merge": true
+  },
+  "audit_and_observability": {
+    "log_decisions": true,
+    "evidence_retention": "repository-record",
+    "metrics_collection": "git-native"
+  }
+}

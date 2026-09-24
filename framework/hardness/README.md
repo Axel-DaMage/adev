@@ -2,7 +2,7 @@
 
 Hardness is A-Dev's emerging framework for operationally governing agents so their behavior is bounded, explainable, verifiable, and aligned with user expectations.
 
-It is not presented as an external technical standard. It is a working A-Dev term for turning intent into durable behavior through explicit policies, capability contracts, authority boundaries, and evidence.
+It is not presented as an external technical standard. It is a working A-Dev term for turning intent into durable behavior through explicit policies, capability contracts, authority boundaries, earned trust ladders, and evidence.
 
 ## Start here
 
@@ -14,15 +14,17 @@ It is not presented as an external technical standard. It is a working A-Dev ter
 6. [`05-policy-schema-and-fixtures.md`](05-policy-schema-and-fixtures.md) provides a local policy-record schema, fixtures, and reproducible structural validation.
 7. [`06-agent-consumption-guide.md`](06-agent-consumption-guide.md) explains how an agent reads canon, selects a bounded skill, and applies policy without assuming a runtime.
 8. [`07-compatibility-layer.md`](07-compatibility-layer.md) defines portable Hardness contracts and runtime adaptation without a runtime dependency.
+9. [`08-trust-ladder-and-autonomy-levels.md`](08-trust-ladder-and-autonomy-levels.md) establishes the six canonical autonomy levels (`shadow`, `suggest`, `auto-PR`, `auto-merge-low`, `auto-merge-all`, `auto-deploy`), promotion criteria, demotion triggers, and SLOs.
+10. [`09-per-repo-configuration.md`](09-per-repo-configuration.md) defines per-repository autonomy configuration via `.ai-sdlc.yaml` and the [`ai-sdlc-schema.json`](ai-sdlc-schema.json) contract.
 
 ## Relationship to A-Dev
 
 A-Dev governs disciplined delivery. Hardness makes the agent-facing part of that governance explicit:
 
-`user expectation -> applicable policy -> bounded skill -> authorized action -> evidence -> evaluation`
+`user expectation -> applicable policy -> bounded skill -> authorized action -> trust level gating -> evidence -> evaluation`
 
-The existing baseline remains useful, but Hardness distinguishes universal doctrine, scoped policy, project overlay, reusable skill, and behavioral evidence so the baseline does not grow into an unreviewable list of rules.
+The existing baseline remains useful, but Hardness distinguishes universal doctrine, scoped policy, project overlay, reusable skill, earned autonomy level, and behavioral evidence so the baseline does not grow into an unreviewable list of rules.
 
 ## Current maturity
 
-This is a foundation, not a completeness claim. The initial expectation contract, action risk classes, policy-record schema, reference skill, and compatibility layer are defined; enforcement, runtime-backed evaluations, lifecycle management, and cross-agent proof are intentionally left for later phases.
+This is a foundation, not a completeness claim. The expectation contract, action risk classes, policy-record schema, reference skill, compatibility layer, trust ladder doctrine, and per-repo `.ai-sdlc.yaml` schema are defined; runtime-backed automated enforcement tooling and cross-agent proof are developed progressively across the lifecycle.
