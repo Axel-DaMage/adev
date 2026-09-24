@@ -1,0 +1,299 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "A-Dev Hardness Per-Repository SDLC Configuration Schema",
+  "description": "Vendor-neutral structural contract for repository-level agent autonomy, trust ladder configuration, boundaries, merge rules, and demotion SLOs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "trust_ladder",
+    "risk_boundaries",
+    "automated_merge_rules",
+    "audit_and_observability"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "SemVer version identifier for the schema format."
+    },
+    "repository": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Repository identifier (e.g. owner/repo)."
+    },
+    "trust_ladder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "current_level",
+        "target_level",
+        "evaluation_window",
+        "promotion_gates",
+        "demotion_triggers",
+        "rehabilitation"
+      ],
+      "properties": {
+        "current_level": {
+          "$ref": "#/definitions/autonomyLevel",
+          "description": "Active operational autonomy level."
+        },
+        "target_level": {
+          "$ref": "#/definitions/autonomyLevel",
+          "description": "Target autonomy level for upcoming promotion evaluation."
+        },
+        "evaluation_window": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min_pull_requests", "min_days"],
+          "properties": {
+            "min_pull_requests": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Minimum sample size of pull requests required for promotion evaluation."
+            },
+            "min_days": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Minimum calendar duration required at the current level."
+            }
+          }
+        },
+        "promotion_gates": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "min_merge_success_rate",
+            "max_revert_rate",
+            "max_escalation_rate",
+            "min_ci_first_pass_rate",
+            "min_policy_conformance_rate"
+          ],
+          "properties": {
+            "min_merge_success_rate": {
+              "type": "number",
+              "minimum": 0.0,
+              "maximum": 1.0,
+              "description": "Minimum proportion of agent PRs merged without human rework (0.0 - 1.0)."
+            },
+            "max_revert_rate": {
+              "type": "number",
+              "minimum": 0.0,
+              "maximum": 1.0,
+              "description": "Maximum allowed revert rate over the evaluation window (0.0 - 1.0)."
+            },
+            "max_escalation_rate": {
+              "type": "number",
+              "minimum": 0.0,
+              "maximum": 1.0,
+              "description": "Maximum allowed escalation or human takeover rate (0.0 - 1.0)."
+            },
+            "min_ci_first_pass_rate": {
+              "type": "number",
+              "minimum": 0.0,
+              "maximum": 1.0,
+              "description": "Minimum proportion of PRs passing CI on the first run (0.0 - 1.0)."
+            },
+            "min_policy_conformance_rate": {
+              "type": "number",
+              "minimum": 0.0,
+              "maximum": 1.0,
+              "description": "Required policy compliance rate (typically 1.00)."
+            }
+          }
+        },
+        "demotion_triggers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "instant_demotion_on_security_breach",
+            "demote_to_level"
+          ],
+          "properties": {
+            "max_revert_rate_slo": {
+              "type": "number",
+              "minimum": 0.0,
+              "maximum": 1.0,
+              "description": "Maximum allowable revert rate before automatic demotion."
+            },
+            "max_consecutive_failures": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Consecutive CI or merge failures triggering automatic demotion."
+            },
+            "max_escalation_rate_slo": {
+              "type": "number",
+              "minimum": 0.0,
+              "maximum": 1.0,
+              "description": "Maximum allowable escalation rate before automatic demotion."
+            },
+            "instant_demotion_on_security_breach": {
+              "type": "boolean",
+              "description": "Whether an unauthorized R2/R3 action or security rule breach triggers instant demotion."
+            },
+            "demote_to_level": {
+              "$ref": "#/definitions/autonomyLevel",
+              "description": "Target fallback level upon demotion."
+            }
+          }
+        },
+        "rehabilitation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cooldown_days",
+            "required_clean_runs",
+            "requires_human_signoff"
+          ],
+          "properties": {
+            "cooldown_days": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Minimum calendar days to remain at demoted level before re-evaluation."
+            },
+            "required_clean_runs": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Minimum consecutive defect-free PRs required before promotion re-evaluation."
+            },
+            "requires_human_signoff": {
+              "type": "boolean",
+              "description": "Whether human architect sign-off is required to restore trust level."
+            }
+          }
+        }
+      }
+    },
+    "risk_boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "low_risk_paths",
+        "high_risk_paths",
+        "protected_branches"
+      ],
+      "properties": {
+        "low_risk_paths": {
+          "$ref": "#/definitions/nonEmptyStringArray",
+          "description": "Glob patterns eligible for autonomous merge at Level 3 (auto-merge-low)."
+        },
+        "high_risk_paths": {
+          "$ref": "#/definitions/nonEmptyStringArray",
+          "description": "Glob patterns strictly requiring human review and approval."
+        },
+        "protected_branches": {
+          "$ref": "#/definitions/nonEmptyStringArray",
+          "description": "Target branches governed by hardness merge policies."
+        }
+      }
+    },
+    "automated_merge_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "require_all_ci_passing",
+        "require_zero_blocking_reviews",
+        "require_no_unresolved_comments",
+        "allowed_merge_methods",
+        "delete_branch_after_merge"
+      ],
+      "properties": {
+        "require_all_ci_passing": {
+          "type": "boolean",
+          "description": "Require 100% passing status checks prior to merge."
+        },
+        "require_zero_blocking_reviews": {
+          "type": "boolean",
+          "description": "Require zero changes requested or blocking reviews."
+        },
+        "require_no_unresolved_comments": {
+          "type": "boolean",
+          "description": "Require all review comments and bot feedback to be resolved."
+        },
+        "allowed_merge_methods": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["merge", "squash", "rebase"]
+          },
+          "description": "Allowed Git merge strategies."
+        },
+        "delete_branch_after_merge": {
+          "type": "boolean",
+          "description": "Automatically delete feature branch after successful merge."
+        }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable automated deployment pipelines at Level 5."
+        },
+        "target_environments": {
+          "$ref": "#/definitions/nonEmptyStringArray",
+          "description": "Target environments for autonomous deployment."
+        },
+        "canary_verification_duration_minutes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Duration in minutes to monitor canary telemetry before full rollout."
+        },
+        "auto_rollback_on_health_failure": {
+          "type": "boolean",
+          "description": "Automatically trigger zero-downtime rollback on canary anomaly."
+        }
+      }
+    },
+    "audit_and_observability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "log_decisions",
+        "evidence_retention",
+        "metrics_collection"
+      ],
+      "properties": {
+        "log_decisions": {
+          "type": "boolean",
+          "description": "Record all tool and policy decisions in execution logs."
+        },
+        "evidence_retention": {
+          "type": "string",
+          "enum": ["repository-record", "external-record", "ephemeral"],
+          "description": "Retention mechanism for expectation and verification records."
+        },
+        "metrics_collection": {
+          "type": "string",
+          "enum": ["git-native", "ci-telemetry", "external-apm"],
+          "description": "Primary signal source for Trust Ladder metric calculation."
+        }
+      }
+    }
+  },
+  "definitions": {
+    "autonomyLevel": {
+      "type": "string",
+      "enum": [
+        "shadow",
+        "suggest",
+        "auto-PR",
+        "auto-merge-low",
+        "auto-merge-all",
+        "auto-deploy"
+      ]
+    },
+    "nonEmptyStringArray": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}
