@@ -1,0 +1,141 @@
+name: ai-sdlc-review
+
+# Reusable PR-review stage (epic #34 / issue #66, spec D).
+# Reviews a PR diff with a separate model pass (generator/critic) and posts
+# a structured review comment. Pair with a different `model` input than the
+# implement stage to avoid correlated blind spots.
+
+on:
+  workflow_call:
+    inputs:
+      pr-number:
+        required: true
+        type: number
+      scc-ref:
+        required: false
+        type: string
+        default: 'main'
+      model:
+        required: false
+        type: string
+        default: 'auto/best-coding'
+      max-diff-bytes:
+        description: 'Skip review and warn when the diff exceeds this size'
+        required: false
+        type: number
+        default: 120000
+      timeout-minutes:
+        required: false
+        type: number
+        default: 15
+    secrets:
+      SC_API_KEY:
+        required: true
+      SC_BASE_URL:
+        required: false
+
+env:
+  SC_API_KEY: ${{ secrets.SC_API_KEY }}
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    concurrency:
+      group: ai-sdlc-review-${{ github.repository }}-${{ inputs.pr-number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Fetch PR metadata + diff (REST)
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api "repos/${{ github.repository }}/pulls/${{ inputs.pr-number }}" \
+            --jq '{title, body, base: .base.ref, head: .head.ref, additions, deletions, changed_files}' > /tmp/pr.json
+          gh api "repos/${{ github.repository }}/pulls/${{ inputs.pr-number }}" \
+            -H "Accept: application/vnd.github.v3.diff" > /tmp/pr.diff
+          wc -c /tmp/pr.diff
+          echo "base=$(jq -r .base /tmp/pr.json)" >> "$GITHUB_OUTPUT"
+          echo "head=$(jq -r .head /tmp/pr.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Oversized-diff guard
+        id: size
+        run: |
+          bytes=$(wc -c < /tmp/pr.diff)
+          echo "too_big=$([ "$bytes" -gt "${{ inputs.max-diff-bytes }}" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Install scc
+        if: steps.size.outputs.too_big == 'false'
+        run: |
+          git clone --depth 1 --branch "${{ inputs.scc-ref }}" \
+            https://github.com/os-santiago/sc-agent-cli.git /opt/scc
+          cd /opt/scc && npm ci && npm run build && npm link
+
+      - name: Write agent config (read-only reviewer)
+        if: steps.size.outputs.too_big == 'false'
+        run: |
+          mkdir -p "$HOME/.sc-agent"
+          cat > "$HOME/.sc-agent/config.json" <<EOF
+          {"model":{"provider":"openai-compatible","model":"${{ inputs.model }}",
+           "apiKey":"${{ secrets.SC_API_KEY }}",
+           "baseUrl":"${{ secrets.SC_BASE_URL || 'https://api.openai.com/v1' }}"},
+           "permissions":{"autoApprove":["read_file","list_dir","search_text"]},
+           "settings":{"hud":false}}
+          EOF
+
+      - name: Run review
+        id: agent
+        if: steps.size.outputs.too_big == 'false'
+        run: |
+          {
+            echo "You are a strict senior code reviewer. Read-only: do not modify files."
+            echo "PR #${{ inputs.pr-number }} on ${{ github.repository }}:"
+            jq -r '.title, "", .body // ""' /tmp/pr.json
+            echo ""; echo "Changed files: $(jq -r .changed_files /tmp/pr.json) (+$(jq -r .additions /tmp/pr.json)/-$(jq -r .deletions /tmp/pr.json))"
+            echo "The diff is at /tmp/pr.diff — read it and the affected source files in the checkout."
+            echo ""
+            echo "Output ONLY markdown with these sections:"
+            echo "### 🤖 AI-SDLC review"
+            echo "**Verdict** — one of: APPROVE | COMMENT | REQUEST_CHANGES"
+            echo "**Summary** — 2-4 sentences"
+            echo "**Findings** — bullet list ordered by severity: \`[blocker|major|minor|nit] file:line — issue + suggested fix\`. Omit when clean."
+            echo "**Risk** — blast radius estimate for auto-merge gating (low|medium|high) + one-line justification"
+          } > /tmp/prompt.txt
+          git checkout -q "$(jq -r .head /tmp/pr.json)" 2>/dev/null || true
+          set +e
+          scc chat -yq "$(cat /tmp/prompt.txt)" > /tmp/review.out 2>/tmp/review.err
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          set -e
+
+      - name: Post review comment
+        if: steps.size.outputs.too_big == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          awk '/^### .*AI-SDLC review/{found=1} found' /tmp/review.out | head -150 > /tmp/review.md
+          if [ -s /tmp/review.md ]; then
+            gh api "repos/${{ github.repository }}/issues/${{ inputs.pr-number }}/comments" \
+              -F body=@/tmp/review.md --jq '.html_url'
+          else
+            gh api "repos/${{ github.repository }}/issues/${{ inputs.pr-number }}/comments" \
+              -f body="🤖 AI-SDLC review ran but produced no structured output (exit ${{ steps.agent.outputs.exit_code }})." || true
+          fi
+
+      - name: Warn on oversized diff
+        if: steps.size.outputs.too_big == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api "repos/${{ github.repository }}/issues/${{ inputs.pr-number }}/comments" \
+            -f body="🤖 AI-SDLC review skipped: diff exceeds ${{ inputs.max-diff-bytes }} bytes. Split the PR or raise \`max-diff-bytes\`." || true

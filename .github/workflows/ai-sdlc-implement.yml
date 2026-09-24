@@ -205,9 +205,8 @@ jobs:
           gh api "repos/${{ github.repository }}/pulls" -X POST \
             -f title="$(cat /tmp/issue.json | jq -r '.title')" \
             -f head="$branch" -f base="${{ inputs.base-branch }}" \
-            -f body="Closes #${{ inputs.issue-number}}
-
-Automated implementation via ai-sdlc-implement (epic #34)." --jq '.html_url'
+            -f body="Closes #${{ inputs.issue-number }} — automated implementation via ai-sdlc-implement (epic #34)." \
+            --jq '.html_url'
 
       - name: Report outcome to issue
         if: always() && steps.dedup.outputs.existing == ''

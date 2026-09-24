@@ -1,0 +1,126 @@
+name: ai-sdlc-intake
+
+# Reusable intake/refinement stage (epic #34 / issue #66).
+# Turns a raw issue into an executable spec: clarifying questions,
+# acceptance criteria, scope estimate — posted as an issue comment.
+
+on:
+  workflow_call:
+    inputs:
+      issue-number:
+        required: true
+        type: number
+      scc-ref:
+        required: false
+        type: string
+        default: 'main'
+      model:
+        required: false
+        type: string
+        default: 'auto/best-coding'
+      timeout-minutes:
+        required: false
+        type: number
+        default: 10
+    secrets:
+      SC_API_KEY:
+        required: true
+      SC_BASE_URL:
+        required: false
+
+env:
+  SC_API_KEY: ${{ secrets.SC_API_KEY }}
+
+jobs:
+  intake:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    concurrency:
+      group: ai-sdlc-intake-${{ github.repository }}-${{ inputs.issue-number }}
+      cancel-in-progress: true
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Fetch issue + repo shape (REST)
+        id: issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api "repos/${{ github.repository }}/issues/${{ inputs.issue-number }}" \
+            --jq '{title, body, labels: [.labels[].name]}' > /tmp/issue.json
+          {
+            echo "Languages:"; ls package.json Cargo.toml go.mod pyproject.toml requirements*.txt 2>/dev/null
+            echo ""; echo "Top-level:"; ls -d */ *.md 2>/dev/null | head -20
+          } > /tmp/repo-shape.txt
+
+      - name: Skip if already refined
+        id: dedup
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          n=$(gh api "repos/${{ github.repository }}/issues/${{ inputs.issue-number }}/comments?per_page=100" \
+            --jq '[.[] | select(.body | contains("AI-SDLC refinement"))] | length')
+          echo "refined=$n" >> "$GITHUB_OUTPUT"
+
+      - name: Install scc
+        if: steps.dedup.outputs.refined == '0'
+        run: |
+          git clone --depth 1 --branch "${{ inputs.scc-ref }}" \
+            https://github.com/os-santiago/sc-agent-cli.git /opt/scc
+          cd /opt/scc && npm ci && npm run build && npm link
+
+      - name: Write agent config (read-only worker)
+        if: steps.dedup.outputs.refined == '0'
+        run: |
+          mkdir -p "$HOME/.sc-agent"
+          cat > "$HOME/.sc-agent/config.json" <<EOF
+          {"model":{"provider":"openai-compatible","model":"${{ inputs.model }}",
+           "apiKey":"${{ secrets.SC_API_KEY }}",
+           "baseUrl":"${{ secrets.SC_BASE_URL || 'https://api.openai.com/v1' }}"},
+           "permissions":{"autoApprove":["read_file","list_dir","search_text","web_fetch"]},
+           "settings":{"hud":false}}
+          EOF
+
+      - name: Run refinement (read-only tools only)
+        id: agent
+        if: steps.dedup.outputs.refined == '0'
+        run: |
+          {
+            echo "You are an issue-refinement analyst. You may ONLY read — do not modify files."
+            echo "Issue #${{ inputs.issue-number }}:"
+            jq -r '.title, "", .body // ""' /tmp/issue.json
+            echo ""
+            echo "Repo shape:"; cat /tmp/repo-shape.txt
+            echo ""
+            echo "Produce a refinement comment in markdown with EXACTLY these sections:"
+            echo "### 🤖 AI-SDLC refinement"
+            echo "**Acceptance criteria** — 3-6 bullet checkboxes, testable"
+            echo "**Scope** — files/areas likely touched, size estimate (S/M/L)"
+            echo "**Clarifying questions** — only if genuinely blocking; else omit"
+            echo "**Suggested labels** — from: bug enhancement epic priority:P0-P3"
+            echo "Output ONLY the markdown comment, no preamble."
+          } > /tmp/prompt.txt
+          set +e
+          scc chat -yq "$(cat /tmp/prompt.txt)" > /tmp/refine.out 2>/tmp/refine.err
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          set -e
+
+      - name: Post refinement comment
+        if: steps.dedup.outputs.refined == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Strip everything before the expected header (model preamble)
+          awk '/^### .*AI-SDLC refinement/{found=1} found' /tmp/refine.out | head -80 > /tmp/comment.md
+          if [ -s /tmp/comment.md ]; then
+            gh api "repos/${{ github.repository }}/issues/${{ inputs.issue-number }}/comments" \
+              -F body=@/tmp/comment.md --jq '.html_url'
+          else
+            echo "no structured output produced — skipping comment"
+          fi

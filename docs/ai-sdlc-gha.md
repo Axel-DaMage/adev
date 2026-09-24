@@ -5,7 +5,53 @@ the reference implementation of the A-Dev automation specs. Any repository
 adopts the pipeline by adding a thin caller workflow; no persistent
 infrastructure is required.
 
-## Adopting `ai-sdlc-implement`
+## The package
+
+| Workflow | Stage | Trigger (caller) | What it does |
+|----------|-------|------------------|--------------|
+| `ai-sdlc-intake.yml` | Refine | `issues.labeled` | Read-only agent pass → posts acceptance criteria, scope, clarifying questions |
+| `ai-sdlc-implement.yml` | Implement | `issues.labeled` (`ready-to-implement`) | Agent edits → workflow-owned branch/commit/PR |
+| `ai-sdlc-review.yml` | Review | `pull_request.opened`/`synchronize` | Critic-model review → structured verdict + findings comment |
+| `ai-sdlc-merge.yml` | Merge | `schedule` / `check_run.completed` | Green PRs squash-merged; failing/stale/conflicted → `needs-human` |
+
+### Full caller example
+
+```yaml
+name: ai-sdlc
+on:
+  issues: { types: [labeled] }
+  pull_request: { types: [opened, synchronize] }
+  schedule: [ { cron: '*/15 * * * *' } ]
+  workflow_dispatch:
+
+jobs:
+  intake:
+    if: github.event_name == 'issues' && github.event.label.name == 'needs-refinement'
+    uses: Axel-DaMage/adev/.github/workflows/ai-sdlc-intake.yml@v1
+    with: { issue-number: ${{ github.event.issue.number }} }
+    secrets: { SC_API_KEY: ${{ secrets.SC_API_KEY }} }
+
+  implement:
+    if: github.event_name == 'issues' && github.event.label.name == 'ready-to-implement'
+    uses: Axel-DaMage/adev/.github/workflows/ai-sdlc-implement.yml@v1
+    with: { issue-number: ${{ github.event.issue.number }}, scc-ref: v0.5.0 }
+    secrets:
+      SC_API_KEY: ${{ secrets.SC_API_KEY }}
+      SC_BASE_URL: ${{ secrets.SC_BASE_URL }}
+
+  review:
+    if: github.event_name == 'pull_request'
+    uses: Axel-DaMage/adev/.github/workflows/ai-sdlc-review.yml@v1
+    with: { pr-number: ${{ github.event.pull_request.number }}, model: 'auto/best-review' }
+    secrets: { SC_API_KEY: ${{ secrets.SC_API_KEY }} }
+
+  merge:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    uses: Axel-DaMage/adev/.github/workflows/ai-sdlc-merge.yml@v1
+    with: { managed-label: 'ai-sdlc' }
+```
+
+## Adopting `ai-sdlc-implement` (detailed)
 
 ```yaml
 # .github/workflows/ai-sdlc.yml in the consuming repo
