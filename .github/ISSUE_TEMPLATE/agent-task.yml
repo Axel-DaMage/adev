@@ -1,0 +1,138 @@
+name: "🤖 Agent-Consumable Task (A-Dev DoR)"
+description: "Submit an atomic, verifiable task conforming to the A-Dev Issue Definition-of-Ready contract."
+title: "<type>(<scope>): <imperative summary>"
+labels: ["agent-consumable", "a-dev-dor"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### A-Dev Definition-of-Ready (DoR) Intake Form
+        Issues submitted for autonomous agent execution must be atomic, bounded, and deterministically verifiable.
+        Reference: [`framework/hardness/08-issue-definition-of-ready.md`](../../framework/hardness/08-issue-definition-of-ready.md)
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Task Type
+      description: Categorization of the planned work.
+      options:
+        - spec
+        - feat
+        - fix
+        - refactor
+        - docs
+        - test
+        - chore
+        - infra
+    validations:
+      required: true
+
+  - type: dropdown
+    id: risk_tier
+    attributes:
+      label: Action Risk Authority Tier
+      description: Authority level from the Hardness Action Risk Model.
+      options:
+        - T0_READ_ONLY (Inspection / analysis only)
+        - T1_LOCAL_REVERSIBLE (Local scratch changes)
+        - T2_WORKSPACE_BRANCH (Standard PR / branch development)
+        - T3_EXTERNAL_PERSISTENT (Deployments / credentials / external systems)
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context & Background
+      description: Why is this change necessary? Explain the problem and architectural background.
+      placeholder: "Describe the underlying problem or motivation..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Single Objective
+      description: Single-sentence imperative statement of the target state.
+      placeholder: "e.g., Invalidate all active user session tokens in Redis upon password reset completion."
+    validations:
+      required: true
+
+  - type: textarea
+    id: in_scope
+    attributes:
+      label: In Scope (Authorized Deliverables)
+      description: Explicit list of files, endpoints, or components authorized for modification (max 10 files).
+      placeholder: |
+        - `src/services/auth_service.py`: Add session revocation call.
+        - `tests/services/test_auth_service.py`: Add unit test for revocation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of Scope (Negative Boundaries)
+      description: Explicit list of things the agent must NOT do, refactor, or migrate.
+      placeholder: |
+        - Do not modify session token signing algorithms.
+        - Do not refactor Redis connection pooling logic.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria ( Verifiable Pass/Fail )
+      description: Observable, binary checklist items. Avoid subjective words (clean, fast, better).
+      placeholder: |
+        - [ ] Function `revoke_all_sessions` is called when `complete_password_reset` executes.
+        - [ ] Test `test_password_reset_invalidates_all_active_sessions` passes with exit code 0.
+        - [ ] All pre-existing unit tests pass without regressions.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context_attachments
+    attributes:
+      label: Context Attachments (Repo-Relative Paths)
+      description: Direct paths to existing source files, schemas, specs, or test suites.
+      placeholder: |
+        - `src/services/auth_service.py`
+        - `src/storage/redis_session_store.py`
+        - `tests/services/test_auth_service.py`
+    validations:
+      required: true
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification Contract
+      description: Exact deterministic command(s) and expected evidence required to declare task completion.
+      placeholder: |
+        ```bash
+        pytest tests/services/test_auth_service.py -v
+        ```
+        Evidence: Output logs showing 0 failures and exit code 0.
+    validations:
+      required: true
+
+  - type: input
+    id: step_budget
+    attributes:
+      label: Execution Step Budget (Optional)
+      description: Maximum agent tool call/iteration steps before forced escalation (Default: 25).
+      placeholder: "25"
+    validations:
+      required: false
+
+  - type: textarea
+    id: stop_conditions
+    attributes:
+      label: Stop Conditions (Optional)
+      description: Specific conditions requiring immediate halt and human escalation.
+      placeholder: |
+        - If pre-existing tests fail prior to changes.
+        - If database schema migration is required.
+    validations:
+      required: false

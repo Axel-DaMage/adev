@@ -1,0 +1,37 @@
+{
+  "id": "#104",
+  "title": "fix(auth): prevent session fixation on password reset",
+  "type": "fix",
+  "priority": "high",
+  "risk_tier": "T2_WORKSPACE_BRANCH",
+  "context": "During password reset, existing active sessions are not invalidated, allowing an attacker with an old session cookie to maintain unauthorized access.",
+  "objective": "Invalidate all existing session tokens in Redis when a user completes the password reset flow.",
+  "in_scope": [
+    "src/services/auth_service.py",
+    "tests/services/test_auth_service.py"
+  ],
+  "out_of_scope": [
+    "Do not modify session token generation algorithms.",
+    "Do not alter user profile update endpoints.",
+    "Do not refactor Redis connection pooling logic."
+  ],
+  "acceptance_criteria": [
+    "- [ ] complete_password_reset calls session_store.revoke_all_user_sessions(user_id).",
+    "- [ ] Unit test test_password_reset_invalidates_all_active_sessions passes.",
+    "- [ ] pytest tests/services/test_auth_service.py passes with 0 failures."
+  ],
+  "context_attachments": [
+    "src/services/auth_service.py",
+    "src/storage/redis_session_store.py",
+    "tests/services/test_auth_service.py"
+  ],
+  "verification_contract": {
+    "command": "pytest tests/services/test_auth_service.py -v",
+    "expected_evidence": "All tests pass with exit code 0 and zero regressions."
+  },
+  "step_budget": 20,
+  "stop_conditions": [
+    "Redis interface contract requires backwards-incompatible signature changes.",
+    "Pre-existing tests in test_auth_service.py fail before modifications."
+  ]
+}
