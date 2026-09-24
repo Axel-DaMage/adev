@@ -1,0 +1,97 @@
+name: ai-sdlc-merge
+
+# Reusable merge-sweep stage (epic #34 / issue #66) — the GHA port of
+# hermes/scripts/pr_merger.js. Call on a schedule or after check runs:
+# every open AI-SDLC PR is driven to a terminal state without human input.
+#
+#   green + mergeable            → squash merge + delete branch
+#   checks pending > max-pending → label needs-human + comment
+#   checks failing               → label needs-human + comment (repair
+#                                  dispatch is the implement stage's job)
+#   merge conflict               → one update-branch attempt, then escalate
+#
+# Hard limits (same as the container merger): never --admin, never drafts,
+# never labels hold/do-not-merge/wip/needs-human, never non-main bases.
+
+on:
+  workflow_call:
+    inputs:
+      max-pending-minutes:
+        description: 'Escalate PRs whose checks stay pending longer than this'
+        required: false
+        type: number
+        default: 60
+      managed-label:
+        description: 'Only touch PRs carrying this label (empty = all open PRs)'
+        required: false
+        type: string
+        default: 'ai-sdlc'
+    secrets: {}
+
+env:
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      checks: read
+    steps:
+      - name: Sweep open PRs
+        run: |
+          set -e
+          block_re='needs-human|hold|do-not-merge|wip'
+          prs=$(gh api "repos/${{ github.repository }}/pulls?state=open&per_page=50" \
+            --jq '[.[] | select(.draft | not) | select(.base.ref == "main")
+                   | {number, head: .head.ref, labels: [.labels[].name]}]')
+          echo "$prs" | jq -c '.[]' | while read -r pr; do
+            num=$(echo "$pr" | jq -r .number)
+            labels=$(echo "$pr" | jq -r '.labels | join(",")')
+            [ -n "${{ inputs.managed-label }}" ] && ! echo ",$labels," | grep -q ",${{ inputs.managed-label }}," && continue
+            echo "$labels" | grep -qE "$block_re" && { echo "PR #$num: blocked label — skip"; continue; }
+
+            state=$(gh api "repos/${{ github.repository }}/pulls/$num" --jq '.mergeable_state // "unknown"')
+            checks=$(gh api "repos/${{ github.repository }}/commits/$(echo "$pr" | jq -r .head)/check-runs" \
+              --jq '[.check_runs[].conclusion] // []' 2>/dev/null || echo '[]')
+
+            case "$state" in
+              clean|unstable)
+                if echo "$checks" | grep -qE '"failure"|"timed_out"|"cancelled"'; then
+                  gh api "repos/${{ github.repository }}/issues/$num/labels" -X POST -f 'labels[]=needs-human' || true
+                  gh api "repos/${{ github.repository }}/issues/$num/comments" \
+                    -f body='🤖 AI-SDLC merge: checks failing — marked needs-human.' || true
+                  echo "PR #$num: failing checks → needs-human"
+                else
+                  if gh api "repos/${{ github.repository }}/pulls/$num/merge" -X PUT \
+                       -f merge_method=squash --jq '.merged' | grep -q true; then
+                    gh api "repos/${{ github.repository }}/git/refs/heads/$(echo "$pr" | jq -r .head)" \
+                      -X DELETE >/dev/null 2>&1 || true
+                    echo "PR #$num: merged + branch deleted"
+                  else
+                    echo "PR #$num: merge call failed — next sweep retries"
+                  fi
+                fi ;;
+              blocked)
+                # Required checks pending or missing — age check
+                created=$(gh api "repos/${{ github.repository }}/pulls/$num" --jq '.created_at')
+                age_min=$(( ($(date +%s) - $(date -d "$created" +%s)) / 60 ))
+                if [ "$age_min" -gt "${{ inputs.max-pending-minutes }}" ]; then
+                  gh api "repos/${{ github.repository }}/issues/$num/labels" -X POST -f 'labels[]=needs-human' || true
+                  gh api "repos/${{ github.repository }}/issues/$num/comments" \
+                    -f body="🤖 AI-SDLC merge: checks pending ${age_min}min (> ${{ inputs.max-pending-minutes }}min) — marked needs-human." || true
+                  echo "PR #$num: stale pending → needs-human"
+                else
+                  echo "PR #$num: pending ${age_min}min — waiting"
+                fi ;;
+              dirty|behind)
+                gh api "repos/${{ github.repository }}/pulls/$num/update-branch" -X PUT >/dev/null 2>&1 \
+                  && echo "PR #$num: update-branch requested" \
+                  || { gh api "repos/${{ github.repository }}/issues/$num/labels" -X POST -f 'labels[]=needs-human' || true; echo "PR #$num: unresolvable conflict → needs-human"; } ;;
+              *)
+                echo "PR #$num: state=$state — skip" ;;
+            esac
+          done
