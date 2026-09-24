@@ -1,0 +1,84 @@
+{
+  "$schema": "https://adev.dev/schemas/v1/ai-sdlc.schema.json",
+  "version": "1.0",
+  "repository": {
+    "name": "developer-portal-docs",
+    "owner": "devrel-team",
+    "archetype": "docs-site",
+    "default_branch": "main"
+  },
+  "autonomy": {
+    "level": 3,
+    "max_autonomous_risk_tier": "R2",
+    "sandboxing": {
+      "environment": "container",
+      "network_access": "restricted",
+      "workspace_only_writes": true
+    },
+    "allowed_tools": [
+      "read_file",
+      "write_file",
+      "edit_file",
+      "search_text",
+      "run_shell",
+      "git"
+    ],
+    "forbidden_actions": [
+      "force_push",
+      "admin_bypass",
+      "modify_rulesets"
+    ]
+  },
+  "verification": {
+    "default_profile": "standard",
+    "profiles": {
+      "fast": {
+        "commands": [
+          "markdownlint docs/**/*.md"
+        ],
+        "timeout_seconds": 45
+      },
+      "standard": {
+        "commands": [
+          "markdownlint docs/**/*.md",
+          "mkdocs build --strict"
+        ],
+        "timeout_seconds": 180
+      }
+    }
+  },
+  "review": {
+    "required_approvals": 1,
+    "auto_merge": {
+      "enabled": true,
+      "max_risk_tier": "R1",
+      "required_status_checks": [
+        "docs-build"
+      ]
+    },
+    "branch_protection": {
+      "protected_branches": [
+        "main"
+      ],
+      "enforce_admin_bypass_prevention": true
+    }
+  },
+  "escalation": {
+    "contacts": [
+      {
+        "role": "doc_lead",
+        "name": "Technical Documentation Lead",
+        "github_handle": "@doc-lead",
+        "email": "docs@example.com"
+      }
+    ],
+    "triggers": {
+      "max_test_retry_loops": 3,
+      "risk_escalation": true,
+      "policy_violation": true,
+      "budget_exceeded": true,
+      "security_finding": false,
+      "merge_conflict_unresolvable": true
+    }
+  }
+}

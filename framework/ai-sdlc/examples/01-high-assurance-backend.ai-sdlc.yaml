@@ -1,0 +1,255 @@
+# .ai-sdlc.yaml
+# Archetype: High-Assurance Backend Service (API / Payments / Core Data)
+$schema: "https://adev.dev/schemas/v1/ai-sdlc.schema.json"
+version: "1.0"
+
+repository:
+  name: "payment-gateway-service"
+  owner: "fintech-platform"
+  archetype: "high-assurance-backend"
+  default_branch: "main"
+  description: "Core payment processing service with strict compliance and zero-defect requirements"
+  tags:
+    - "payments"
+    - "fintech"
+    - "high-assurance"
+    - "pci-dss"
+
+autonomy:
+  level: 2 # Autonomous PR: Agent creates feature branch, writes code, verifies, and opens PR
+  max_autonomous_risk_tier: "R2" # Agent cannot merge to main or perform R3 privileged operations
+  sandboxing:
+    environment: "container"
+    network_access: "restricted"
+    workspace_only_writes: true
+    filesystem_mounts:
+      - "/workspace"
+  allowed_tools:
+    - "read_file"
+    - "write_file"
+    - "edit_file"
+    - "search_text"
+    - "list_dir"
+    - "run_shell"
+    - "git"
+  forbidden_actions:
+    - "force_push"
+    - "admin_bypass"
+    - "modify_rulesets"
+    - "modify_branch_protection"
+    - "direct_commit_to_main"
+    - "expose_secrets"
+
+verification:
+  default_profile: "standard"
+  profiles:
+    fast:
+      description: "Inner-loop developer checks (fast lint, unit tests)"
+      commands:
+        - "npm run lint"
+        - "npm run test:unit:fast"
+      timeout_seconds: 60
+      working_directory: "."
+      required_on:
+        - "inner_loop"
+        - "on_save"
+      cache:
+        enabled: true
+        paths:
+          - "node_modules/.cache"
+    standard:
+      description: "Standard pull request verification (typecheck, full test suite, build)"
+      commands:
+        - "npm run typecheck"
+        - "npm run test:unit"
+        - "npm run test:integration"
+        - "npm run build"
+      timeout_seconds: 300
+      working_directory: "."
+      required_on:
+        - "pre_pr"
+        - "pr_review"
+    strict:
+      description: "Pre-merge gate: mutation tests, SAST security audit, e2e tests, coverage enforcement"
+      commands:
+        - "npm run test:coverage"
+        - "npm run security:sast"
+        - "npm run test:mutation"
+        - "npm run test:e2e"
+      timeout_seconds: 900
+      working_directory: "."
+      coverage_threshold:
+        line: 90
+        branch: 85
+        statement: 90
+        function: 90
+      artifacts:
+        - "coverage/lcov.info"
+        - "reports/mutation-report.html"
+        - "reports/security-scan.json"
+      required_on:
+        - "pre_merge"
+        - "release"
+
+review:
+  required_approvals: 2
+  code_review_bots:
+    coderabbit:
+      enabled: true
+      blocking_severities:
+        - "critical"
+        - "high"
+        - "BLOCKING"
+      treat_actionable_as_blocking: false
+    custom_evaluators:
+      - name: "hardness-policy-conformance"
+        command: "python3 scripts/validate-hardness.py"
+        required: true
+  signoff_matrix:
+    r0:
+      required_human_approvals: 0
+      auto_merge_eligible: false
+    r1:
+      required_human_approvals: 1
+      auto_merge_eligible: false
+    r2:
+      required_human_approvals: 2
+      required_roles:
+        - "maintainer"
+      auto_merge_eligible: false
+    r3:
+      required_human_approvals: 3
+      required_roles:
+        - "architect"
+        - "security_lead"
+      auto_merge_eligible: false
+  auto_merge:
+    enabled: false
+    max_risk_tier: "R0"
+    merge_method: "squash"
+    required_status_checks:
+      - "ci/github-actions/test"
+      - "ci/security-scan"
+    require_linear_history: true
+    delete_branch_on_merge: true
+  branch_protection:
+    protected_branches:
+      - "main"
+      - "release/*"
+    enforce_admin_bypass_prevention: true
+    require_signed_commits: true
+
+labels:
+  enforce_on_prs: true
+  enforce_on_issues: true
+  taxonomy:
+    risk:
+      prefix: "risk:"
+      required: true
+      enforce_single: true
+      description: "Risk classification matching A-Dev Hardness Action Risk Classes"
+      values:
+        - name: "risk:r0"
+          description: "Read-only inspection and zero mutation"
+          color: "0e8a16"
+        - name: "risk:r1"
+          description: "Reversible local mutation"
+          color: "2cbe4e"
+        - name: "risk:r2"
+          description: "Shared multi-party mutation (PR)"
+          color: "fbca04"
+        - name: "risk:r3"
+          description: "High-impact privileged mutation (merge/deploy/security)"
+          color: "d93f0b"
+    type:
+      prefix: "type:"
+      required: true
+      description: "Change classification"
+      values:
+        - name: "type:feat"
+          description: "New functional feature"
+          color: "a2eeef"
+        - name: "type:fix"
+          description: "Bug fix or defect remediation"
+          color: "d73a4a"
+        - name: "type:security"
+          description: "Security patch or hardening update"
+          color: "b60205"
+        - name: "type:spec"
+          description: "Specification, contract, or schema definition"
+          color: "0075ca"
+        - name: "type:refactor"
+          description: "Internal restructuring without behavioral change"
+          color: "cfd3d7"
+    stage:
+      prefix: "stage:"
+      required: false
+      description: "Pipeline delivery stage"
+      values:
+        - name: "stage:01-contract"
+          description: "Scope, objective, and acceptance criteria phase"
+          color: "fef2c0"
+        - name: "stage:02-impl"
+          description: "Active implementation phase"
+          color: "bfdadc"
+        - name: "stage:03-verify"
+          description: "Verification and proof generation phase"
+          color: "c2e0c6"
+        - name: "stage:04-review"
+          description: "Code review and signoff phase"
+          color: "f9d0c4"
+
+model_routing:
+  default_tier: "balanced"
+  task_profiles:
+    architecture_and_security:
+      description: "Architectural contracts, security-sensitive auth/crypto code, and complex schema design"
+      tier: "reasoning"
+      preferred_models:
+        - "claude-3-7-sonnet"
+        - "o3-mini"
+        - "deepseek-r1"
+      temperature: 0.1
+      max_context_tokens: 128000
+      max_output_tokens: 8192
+    implementation:
+      description: "General feature implementation and unit test creation"
+      tier: "balanced"
+      preferred_models:
+        - "claude-3-7-sonnet"
+        - "gemini-2.5-pro"
+        - "gpt-4o"
+      temperature: 0.2
+    triage_and_lint:
+      description: "Boilerplate generation, lint resolution, and label triage"
+      tier: "fast"
+      preferred_models:
+        - "claude-3-5-haiku"
+        - "gemini-2.5-flash"
+      temperature: 0.2
+  cost_governance:
+    max_budget_per_run_usd: 10.00
+    max_turns_per_session: 60
+    alert_threshold_usd: 5.00
+
+escalation:
+  contacts:
+    - role: "architect"
+      name: "Lead System Architect"
+      github_handle: "@payments-architect"
+      email: "architect@payments-org.example.com"
+      slack_channel: "#arch-escalations"
+    - role: "security_lead"
+      name: "Application Security Lead"
+      github_handle: "@appsec-leads"
+      email: "appsec@payments-org.example.com"
+      slack_channel: "#sec-ops"
+      pagerduty_service: "P123456"
+  triggers:
+    max_test_retry_loops: 3
+    risk_escalation: true
+    policy_violation: true
+    budget_exceeded: true
+    security_finding: true
+    merge_conflict_unresolvable: true
+  on_escalation: "stop_and_notify"

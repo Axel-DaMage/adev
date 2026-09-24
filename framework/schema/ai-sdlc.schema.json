@@ -1,0 +1,803 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://adev.dev/schemas/v1/ai-sdlc.schema.json",
+  "title": "A-Dev AI-SDLC Declarative Repository Configuration Schema",
+  "description": "Normative schema for per-repo declarative configuration of the AI-SDLC pipeline: verification profiles, progressive autonomy ladder, review policy, label taxonomy, model routing hints, and escalation contacts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "autonomy",
+    "verification",
+    "review",
+    "escalation"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "URI of the JSON Schema for validation and editor autocompletion."
+    },
+    "version": {
+      "type": "string",
+      "description": "Configuration schema version string (e.g., '1.0' or '1.0.0').",
+      "pattern": "^[0-9]+(\\.[0-9]+)*$"
+    },
+    "repository": {
+      "type": "object",
+      "description": "Repository metadata and operational archetype classification.",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Repository name or identifier."
+        },
+        "owner": {
+          "type": "string",
+          "description": "Owner or primary organization responsible for the repository."
+        },
+        "archetype": {
+          "type": "string",
+          "description": "Operational archetype classifying the repository's purpose and delivery cadence.",
+          "enum": [
+            "high-assurance-backend",
+            "microservice",
+            "library",
+            "monorepo",
+            "frontend-web",
+            "cli-tool",
+            "docs-site",
+            "infrastructure",
+            "data-pipeline",
+            "custom"
+          ]
+        },
+        "default_branch": {
+          "type": "string",
+          "description": "Primary branch for integration and releases.",
+          "default": "main"
+        },
+        "description": {
+          "type": "string",
+          "description": "Brief description of the repository and its role."
+        },
+        "tags": {
+          "type": "array",
+          "description": "Descriptive tags for indexing and classification.",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "autonomy": {
+      "type": "object",
+      "description": "Autonomy and trust configuration mapped to the Progressive Autonomy Ladder (L0 to L4) and Action Risk Classes (R0 to R3).",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "max_autonomous_risk_tier"
+      ],
+      "properties": {
+        "level": {
+          "description": "Autonomy/trust level on the Progressive Autonomy Ladder: 0 (Advisory / Human-Only), 1 (Assisted / Local Scratchpad), 2 (Autonomous PR / Atomic Iterations), 3 (Guarded Merge / Supervised Auto-Pilot), 4 (Full Lifecycle Autonomy). Accepts integer 0-4 or canonical string representations.",
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4
+            },
+            {
+              "type": "string",
+              "enum": [
+                "0", "1", "2", "3", "4",
+                "L0", "L1", "L2", "L3", "L4",
+                "A0", "A1", "A2", "A3", "A4",
+                "L0-advisory", "L1-assisted", "L2-autonomous-pr", "L3-guarded-merge", "L4-full-lifecycle",
+                "A0-advisory", "A1-assisted", "A2-autonomous-pr", "A3-guarded-merge", "A4-full-lifecycle"
+              ]
+            }
+          ]
+        },
+        "max_autonomous_risk_tier": {
+          "type": "string",
+          "description": "Maximum action risk tier the agent is authorized to execute autonomously without explicit human sign-off (R0=read-only, R1=local mutation, R2=shared branch/PR, R3=merge/release/privileged).",
+          "enum": [
+            "R0",
+            "R1",
+            "R2",
+            "R3"
+          ]
+        },
+        "sandboxing": {
+          "type": "object",
+          "description": "Execution isolation and sandboxing constraints for running agents and tools.",
+          "additionalProperties": false,
+          "properties": {
+            "environment": {
+              "type": "string",
+              "description": "Isolation runtime environment.",
+              "enum": [
+                "container",
+                "isolated-vm",
+                "local-workspace",
+                "rootless-podman",
+                "docker",
+                "none"
+              ]
+            },
+            "network_access": {
+              "type": "string",
+              "description": "Network access boundaries during agent execution.",
+              "enum": [
+                "none",
+                "restricted",
+                "package-registries-only",
+                "full"
+              ]
+            },
+            "workspace_only_writes": {
+              "type": "boolean",
+              "description": "Restrict file writes strictly to the authorized repository workspace directory.",
+              "default": true
+            },
+            "filesystem_mounts": {
+              "type": "array",
+              "description": "Explicit list of allowed read-only or read-write filesystem paths.",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "allowed_tools": {
+          "type": "array",
+          "description": "Explicit whitelist of permitted tools or tool categories available to agents.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "forbidden_actions": {
+          "type": "array",
+          "description": "Non-negotiable prohibited actions regardless of prompt or user request (e.g. force_push, admin_bypass, modify_rulesets).",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "description": "Verification profiles defining commands, timeouts, triggers, and pass criteria.",
+      "additionalProperties": false,
+      "required": [
+        "default_profile",
+        "profiles"
+      ],
+      "properties": {
+        "default_profile": {
+          "type": "string",
+          "description": "Name of the verification profile to execute when none is explicitly specified."
+        },
+        "profiles": {
+          "type": "object",
+          "description": "Named verification profiles (e.g., fast, standard, strict, mutation, security, release).",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "commands"
+            ],
+            "properties": {
+              "description": {
+                "type": "string",
+                "description": "Human-readable description of what this verification profile validates."
+              },
+              "commands": {
+                "type": "array",
+                "description": "Sequence of shell commands that must succeed (exit code 0).",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "timeout_seconds": {
+                "type": "integer",
+                "description": "Maximum execution time in seconds before terminating the verification run.",
+                "minimum": 1,
+                "default": 300
+              },
+              "working_directory": {
+                "type": "string",
+                "description": "Relative directory from repository root to run the verification commands.",
+                "default": "."
+              },
+              "environment_variables": {
+                "type": "object",
+                "description": "Key-value environment variables passed to verification commands.",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "coverage_threshold": {
+                "type": "object",
+                "description": "Minimum required code coverage percentages.",
+                "additionalProperties": false,
+                "properties": {
+                  "line": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "branch": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "statement": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "function": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                }
+              },
+              "artifacts": {
+                "type": "array",
+                "description": "File paths or glob patterns of evidence artifacts produced by this profile.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "required_on": {
+                "type": "array",
+                "description": "Lifecycle stages or events where this profile must pass.",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "inner_loop",
+                    "on_save",
+                    "pre_commit",
+                    "pre_pr",
+                    "pr_review",
+                    "pre_merge",
+                    "post_merge",
+                    "release",
+                    "nightly",
+                    "manual"
+                  ]
+                }
+              },
+              "cache": {
+                "type": "object",
+                "description": "Caching strategy for verification dependencies or build outputs.",
+                "additionalProperties": false,
+                "properties": {
+                  "enabled": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "paths": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "key_files": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "allow_failure": {
+                "type": "boolean",
+                "description": "Whether a failure in this profile is non-blocking (advisory).",
+                "default": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "description": "Review and merge policies governing pull requests, human sign-offs, bot reviews, and branch protection.",
+      "additionalProperties": false,
+      "required": [
+        "required_approvals"
+      ],
+      "properties": {
+        "required_approvals": {
+          "type": "integer",
+          "description": "Base number of required human approvals for merging.",
+          "minimum": 0
+        },
+        "code_review_bots": {
+          "type": "object",
+          "description": "Configuration for automated AI and bot review tools.",
+          "additionalProperties": false,
+          "properties": {
+            "coderabbit": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "blocking_severities": {
+                  "type": "array",
+                  "description": "Comment severity levels that block merge.",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "critical",
+                      "high",
+                      "medium",
+                      "low",
+                      "BLOCKING",
+                      "ACTIONABLE",
+                      "NITPICK"
+                    ]
+                  }
+                },
+                "treat_actionable_as_blocking": {
+                  "type": "boolean",
+                  "description": "Treat actionable comments as blocking issues requiring resolution.",
+                  "default": false
+                }
+              }
+            },
+            "custom_evaluators": {
+              "type": "array",
+              "description": "Custom automated review evaluations or scripts.",
+              "items": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "command": {
+                    "type": "string"
+                  },
+                  "required": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "signoff_matrix": {
+          "type": "object",
+          "description": "Approval requirements partitioned by action risk tier (R0 to R3).",
+          "additionalProperties": false,
+          "properties": {
+            "r0": {
+              "$ref": "#/definitions/signoff_tier"
+            },
+            "r1": {
+              "$ref": "#/definitions/signoff_tier"
+            },
+            "r2": {
+              "$ref": "#/definitions/signoff_tier"
+            },
+            "r3": {
+              "$ref": "#/definitions/signoff_tier"
+            }
+          }
+        },
+        "auto_merge": {
+          "type": "object",
+          "description": "Rules for automated merging of pull requests.",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "allowed_for_actors": {
+              "type": "array",
+              "description": "List of bot/agent usernames authorized to auto-merge when criteria pass.",
+              "items": {
+                "type": "string"
+              }
+            },
+            "max_risk_tier": {
+              "type": "string",
+              "description": "Maximum risk tier eligible for auto-merge.",
+              "enum": [
+                "R0",
+                "R1",
+                "R2",
+                "R3"
+              ],
+              "default": "R1"
+            },
+            "merge_method": {
+              "type": "string",
+              "description": "Git merge method.",
+              "enum": [
+                "squash",
+                "merge",
+                "rebase"
+              ],
+              "default": "squash"
+            },
+            "required_status_checks": {
+              "type": "array",
+              "description": "CI status check context names that must be SUCCESS before auto-merge.",
+              "items": {
+                "type": "string"
+              }
+            },
+            "require_linear_history": {
+              "type": "boolean",
+              "default": true
+            },
+            "delete_branch_on_merge": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        },
+        "branch_protection": {
+          "type": "object",
+          "description": "Branch protection rules and security safeguards.",
+          "additionalProperties": false,
+          "properties": {
+            "protected_branches": {
+              "type": "array",
+              "description": "List of branch names or patterns subject to branch protection.",
+              "items": {
+                "type": "string"
+              }
+            },
+            "enforce_admin_bypass_prevention": {
+              "type": "boolean",
+              "description": "Strictly prohibit the use of --admin flag or admin bypass in pipeline operations.",
+              "default": true
+            },
+            "require_signed_commits": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        }
+      }
+    },
+    "labels": {
+      "type": "object",
+      "description": "Label taxonomy definitions and enforcement rules for issues and pull requests.",
+      "additionalProperties": false,
+      "properties": {
+        "enforce_on_prs": {
+          "type": "boolean",
+          "description": "Whether label taxonomy compliance is enforced on pull requests in CI.",
+          "default": true
+        },
+        "enforce_on_issues": {
+          "type": "boolean",
+          "description": "Whether label taxonomy compliance is enforced on issues in CI.",
+          "default": false
+        },
+        "taxonomy": {
+          "type": "object",
+          "description": "Named taxonomy categories (e.g. risk, autonomy, type, stage, status).",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "values"
+            ],
+            "properties": {
+              "prefix": {
+                "type": "string",
+                "description": "Prefix used by labels in this category (e.g. 'risk:', 'type:')."
+              },
+              "description": {
+                "type": "string",
+                "description": "Purpose and meaning of this label category."
+              },
+              "required": {
+                "type": "boolean",
+                "description": "Whether at least one label from this category must be present.",
+                "default": false
+              },
+              "enforce_single": {
+                "type": "boolean",
+                "description": "Whether at most one label from this category may be applied.",
+                "default": false
+              },
+              "values": {
+                "type": "array",
+                "description": "List of allowed label definitions in this category.",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Exact label name."
+                    },
+                    "description": {
+                      "type": "string",
+                      "description": "Human-readable explanation of when to apply this label."
+                    },
+                    "color": {
+                      "type": "string",
+                      "description": "Hex color code for the label (with or without leading #).",
+                      "pattern": "^(#)?[0-9a-fA-F]{6}$"
+                    },
+                    "aliases": {
+                      "type": "array",
+                      "description": "Deprecated or alternative label names mapped to this canonical label.",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "model_routing": {
+      "type": "object",
+      "description": "Routing hints matching task characteristics to optimal model capability tiers.",
+      "additionalProperties": false,
+      "properties": {
+        "default_tier": {
+          "type": "string",
+          "description": "Default capability tier for unclassified tasks.",
+          "enum": [
+            "fast",
+            "balanced",
+            "reasoning",
+            "custom"
+          ],
+          "default": "balanced"
+        },
+        "task_profiles": {
+          "type": "object",
+          "description": "Model capability profiles for specific task categories.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tier"
+            ],
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "tier": {
+                "type": "string",
+                "enum": [
+                  "fast",
+                  "balanced",
+                  "reasoning",
+                  "custom"
+                ]
+              },
+              "preferred_models": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "fallback_models": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "temperature": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 2.0
+              },
+              "max_context_tokens": {
+                "type": "integer",
+                "minimum": 1000
+              },
+              "max_output_tokens": {
+                "type": "integer",
+                "minimum": 100
+              },
+              "system_prompt_overlay": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "cost_governance": {
+          "type": "object",
+          "description": "Budget limits, turn caps, and cost alert thresholds.",
+          "additionalProperties": false,
+          "properties": {
+            "max_budget_per_run_usd": {
+              "type": "number",
+              "minimum": 0
+            },
+            "max_turns_per_session": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "alert_threshold_usd": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "escalation": {
+      "type": "object",
+      "description": "Escalation contacts and human-in-the-loop stop triggers.",
+      "additionalProperties": false,
+      "required": [
+        "contacts",
+        "triggers"
+      ],
+      "properties": {
+        "contacts": {
+          "type": "array",
+          "description": "Maintainers, architects, or on-call contacts to page or notify upon escalation.",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "role"
+            ],
+            "properties": {
+              "role": {
+                "type": "string",
+                "description": "Role responsibility (e.g. architect, maintainer, security_lead, on_call, owner)."
+              },
+              "name": {
+                "type": "string",
+                "description": "Human or team name."
+              },
+              "github_handle": {
+                "type": "string",
+                "description": "GitHub username or team handle (e.g. '@platform-architect')."
+              },
+              "email": {
+                "type": "string",
+                "description": "Email address for escalation alerts."
+              },
+              "slack_channel": {
+                "type": "string",
+                "description": "Slack channel or webhook identifier."
+              },
+              "pagerduty_service": {
+                "type": "string",
+                "description": "PagerDuty service ID or integration key."
+              }
+            }
+          }
+        },
+        "triggers": {
+          "type": "object",
+          "description": "Conditions requiring the agent to halt autonomous execution immediately and escalate to humans.",
+          "additionalProperties": false,
+          "properties": {
+            "max_test_retry_loops": {
+              "type": "integer",
+              "description": "Maximum consecutive test/verify fix iterations before halting.",
+              "minimum": 1,
+              "default": 3
+            },
+            "risk_escalation": {
+              "type": "boolean",
+              "description": "Halt if the required action exceeds max_autonomous_risk_tier.",
+              "default": true
+            },
+            "policy_violation": {
+              "type": "boolean",
+              "description": "Halt immediately if an action breaches forbidden_actions or security policy.",
+              "default": true
+            },
+            "budget_exceeded": {
+              "type": "boolean",
+              "description": "Halt if token spend or cost budget exceeds limit.",
+              "default": true
+            },
+            "security_finding": {
+              "type": "boolean",
+              "description": "Halt if a security vulnerability (SAST, secret scan, dependency check) is detected.",
+              "default": true
+            },
+            "merge_conflict_unresolvable": {
+              "type": "boolean",
+              "description": "Halt if git merge conflict cannot be cleanly resolved autonomously.",
+              "default": true
+            },
+            "custom_triggers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "condition"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "condition": {
+                    "type": "string"
+                  },
+                  "action": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "on_escalation": {
+          "type": "string",
+          "description": "Default action taken by agent when an escalation trigger fires.",
+          "enum": [
+            "stop_and_notify",
+            "open_draft_pr_with_failure_summary",
+            "revert_and_stop",
+            "pause_for_input"
+          ],
+          "default": "stop_and_notify"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "signoff_tier": {
+      "type": "object",
+      "description": "Approval and verification requirements for a specific risk tier.",
+      "additionalProperties": false,
+      "properties": {
+        "required_human_approvals": {
+          "type": "integer",
+          "description": "Number of human approvals required for changes in this risk tier.",
+          "minimum": 0
+        },
+        "required_roles": {
+          "type": "array",
+          "description": "Specific roles that must sign off (e.g., architect, security_lead).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "auto_merge_eligible": {
+          "type": "boolean",
+          "description": "Whether changes in this tier are eligible for automated merging.",
+          "default": false
+        },
+        "required_status_checks": {
+          "type": "array",
+          "description": "Mandatory CI checks that must pass for this tier.",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

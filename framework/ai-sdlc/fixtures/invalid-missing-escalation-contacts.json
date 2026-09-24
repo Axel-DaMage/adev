@@ -1,0 +1,25 @@
+{
+  "$schema": "https://adev.dev/schemas/v1/ai-sdlc.schema.json",
+  "version": "1.0",
+  "autonomy": {
+    "level": 1,
+    "max_autonomous_risk_tier": "R1"
+  },
+  "verification": {
+    "default_profile": "standard",
+    "profiles": {
+      "standard": {
+        "commands": ["npm test"]
+      }
+    }
+  },
+  "review": {
+    "required_approvals": 1
+  },
+  "escalation": {
+    "contacts": [],
+    "triggers": {
+      "max_test_retry_loops": 3
+    }
+  }
+}
