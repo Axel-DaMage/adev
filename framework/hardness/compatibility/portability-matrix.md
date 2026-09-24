@@ -7,6 +7,7 @@
 | Policy record | IDs, scope, authority, precedence, exceptions, owner, review, expiry | Storage, parser, or policy syntax | Automatic enforcement claim |
 | Skill contract | Trigger, effects, invariants, approvals, stop/escalate, evidence | Folder, manifest, or registry convention | Expanding authority through adaptation |
 | Evaluations | Scenario, expected decision, evidence, safe failure | Test harness or report format | Claiming runtime proof from synthetic cases |
+| Prompt-injection defense | Trust boundary model (T0–T4), sanitization pipeline, framing invariants, forbidden-action rules | Delimiter syntax, envelope markers, length limits, logging format | Permitting untrusted text to execute actions or bypass policy |
 | Evidence | Direct source links and uncertainty labels | Logging or retention mechanism | Replacing source evidence with adapter metadata |
 | Runtime controls | None beyond declared mapping | Tool APIs, permission UI, scheduling | Vendor API semantics or external support claims |
 

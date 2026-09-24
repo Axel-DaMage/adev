@@ -9,15 +9,21 @@ The schema requires a stable ID, statement, level, fully declared scope, authori
 ## Fixtures and local validation
 
 - [`fixtures/valid-policy.json`](fixtures/valid-policy.json) must satisfy the schema.
+- [`fixtures/valid-prompt-injection-policy.json`](fixtures/valid-prompt-injection-policy.json) defines a valid policy record for untrusted-content handling and prompt-injection defense.
+- [`fixtures/untrusted-content-envelope-example.json`](fixtures/untrusted-content-envelope-example.json) demonstrates sanitized and enveloped data structures across multiple ingestion vectors.
 - [`fixtures/invalid-policy-missing-owner.json`](fixtures/invalid-policy-missing-owner.json) must fail because `owner` is required.
 
-Run from the repository root with PowerShell:
+Run from the repository root with PowerShell or Python:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File ./framework/hardness/scripts/validate-policy-fixtures.ps1
 ```
 
-The script parses the local schema and fixtures with built-in PowerShell features, then verifies the schema's required policy fields and their supported structural constraints. No package installation is required. Fixtures are synthetic and are not operational evidence. When a future policy cites an operational source, it must follow the direct-artifact attribution rule in [`ADEV.md`](../../ADEV.md#evidence-rules).
+```bash
+python3 ./framework/hardness/scripts/validate-hardness.py
+```
+
+The scripts parse the local schema and fixtures with built-in standard libraries, verifying policy fields and structural constraints without external dependencies. Fixtures are synthetic and are not operational evidence. When a future policy cites an operational source, it must follow the direct-artifact attribution rule in [`ADEV.md`](../../ADEV.md#evidence-rules).
 
 ## Boundary
 
