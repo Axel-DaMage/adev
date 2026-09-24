@@ -10,6 +10,7 @@ $requiredFiles = @(
     '04-action-risk-authority-model.md',
     '05-policy-schema-and-fixtures.md',
     '06-agent-consumption-guide.md',
+    '08-prompt-injection-defense.md',
     'policy-schema.json',
     'skills/adev-read-only-inspection/SKILL.md',
     'compatibility/skill-md-profile.md',

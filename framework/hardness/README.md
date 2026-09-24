@@ -14,12 +14,13 @@ It is not presented as an external technical standard. It is a working A-Dev ter
 6. [`05-policy-schema-and-fixtures.md`](05-policy-schema-and-fixtures.md) provides a local policy-record schema, fixtures, and reproducible structural validation.
 7. [`06-agent-consumption-guide.md`](06-agent-consumption-guide.md) explains how an agent reads canon, selects a bounded skill, and applies policy without assuming a runtime.
 8. [`07-compatibility-layer.md`](07-compatibility-layer.md) defines portable Hardness contracts and runtime adaptation without a runtime dependency.
+9. [`08-prompt-injection-defense.md`](08-prompt-injection-defense.md) establishes the normative trust-boundary model, sanitization pipeline, and forbidden-action rules for untrusted content across all ingestion vectors.
 
 ## Relationship to A-Dev
 
 A-Dev governs disciplined delivery. Hardness makes the agent-facing part of that governance explicit:
 
-`user expectation -> applicable policy -> bounded skill -> authorized action -> evidence -> evaluation`
+`user expectation -> applicable policy -> bounded skill -> untrusted input defense -> authorized action -> evidence -> evaluation`
 
 The existing baseline remains useful, but Hardness distinguishes universal doctrine, scoped policy, project overlay, reusable skill, and behavioral evidence so the baseline does not grow into an unreviewable list of rules.
 

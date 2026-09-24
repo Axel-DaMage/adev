@@ -17,6 +17,7 @@ This specification lets an implementation runtime adapt A-Dev Hardness and does 
 - **Skill:** preserve purpose, triggers, non-triggers, inputs, outputs, permissions, side effects, invariants, policy references, uncertainty, stop/escalate, evidence, and validation from the [skill contract](02-skill-contract-template.md).
 - **Evaluation:** describe a scenario, applicable policy, expected decision, required evidence, and safe failure boundary. Synthetic evaluations do not prove a runtime's behavior.
 - **Human expectation:** capture intent, constraints, authority, non-goals, acceptance criteria, uncertainty, and stop conditions using the [expectations contract](03-human-expectations-contract.md).
+- **Prompt-injection defense:** enforce trust boundaries (T0–T4), pre-ingestion sanitization, collision-resistant XML/nonce enveloping, framing invariants, volume bounding, and forbidden-action rules as defined in the [prompt-injection defense specification](08-prompt-injection-defense.md).
 
 ## Adaptation profiles
 
@@ -33,7 +34,8 @@ A runtime adaptation is minimally conformant only when it:
 1. identifies the A-Dev canon and does not silently override higher policy;
 2. preserves the portable policy and skill fields or records an explicit, reviewable mapping gap;
 3. classifies effects and maintains approval and stop boundaries from the [action risk model](04-action-risk-authority-model.md);
-4. records evidence and uncertainty without turning synthetic fixtures into operational proof; and
-5. passes the local [conformance checklist](compatibility/conformance-checklist.md).
+4. enforces trust boundaries and sanitizes untrusted input across all ingestion vectors using the [prompt-injection defense specification](08-prompt-injection-defense.md);
+5. records evidence and uncertainty without turning synthetic fixtures into operational proof; and
+6. passes the local [conformance checklist](compatibility/conformance-checklist.md).
 
 Use the [agent consumption guide](06-agent-consumption-guide.md) to choose a skill before applying an adaptation profile.
