@@ -1,0 +1,23 @@
+{
+  "id": "#105",
+  "title": "Fix auth and rewrite database",
+  "type": "fix",
+  "priority": "high",
+  "risk_tier": "T2_WORKSPACE_BRANCH",
+  "context": "The auth system is broken and the database needs a rewrite.",
+  "objective": "Fix auth and rewrite database.",
+  "in_scope": [
+    "src/services/auth_service.py"
+  ],
+  "out_of_scope": [
+    "Do not touch frontend."
+  ],
+  "acceptance_criteria": [],
+  "context_attachments": [
+    "src/services/auth_service.py"
+  ],
+  "verification_contract": {
+    "command": "pytest",
+    "expected_evidence": "Passes"
+  }
+}

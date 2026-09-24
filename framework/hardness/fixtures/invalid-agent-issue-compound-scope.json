@@ -1,0 +1,22 @@
+{
+  "id": "#106",
+  "title": "feat(core): massive overhaul of all subsystems",
+  "type": "feat",
+  "priority": "critical",
+  "risk_tier": "INVALID_TIER",
+  "context": "Overhaul everything across the entire backend.",
+  "objective": "Rewrite entire backend stack.",
+  "in_scope": [
+    "src/core/"
+  ],
+  "acceptance_criteria": [
+    "- [ ] Code looks good."
+  ],
+  "context_attachments": [
+    "src/core/"
+  ],
+  "verification_contract": {
+    "command": "make all",
+    "expected_evidence": "Zero errors"
+  }
+}

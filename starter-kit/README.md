@@ -14,6 +14,7 @@ This is the implementation kit for the [A-Dev practice](../framework/README.md).
 ## Existing assets
 - `BASELINE_template.json`: machine-readable baseline seed.
 - `DECISION_LOG.md`: capture decisions and reversals.
+- `AGENT_ISSUE_template.md`: copyable issue template conforming to the [Hardness Definition-of-Ready](../framework/hardness/08-issue-definition-of-ready.md).
 - `QUALITY_CYCLE_checklist.md`: broad quality cycle checklist.
 
 ## Use rule
