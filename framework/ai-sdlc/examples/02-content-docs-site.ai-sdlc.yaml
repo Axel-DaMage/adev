@@ -1,0 +1,192 @@
+# .ai-sdlc.yaml
+# Archetype: Documentation / Content Site (MkDocs / Docusaurus / Hugo)
+$schema: "https://adev.dev/schemas/v1/ai-sdlc.schema.json"
+version: "1.0"
+
+repository:
+  name: "developer-portal-docs"
+  owner: "devrel-team"
+  archetype: "docs-site"
+  default_branch: "main"
+  description: "Official developer documentation, API guides, and tutorials site"
+  tags:
+    - "docs"
+    - "mkdocs"
+    - "developer-portal"
+
+autonomy:
+  level: 3 # Guarded Merge: Agent can autonomously merge low-risk doc updates once all verification checks pass
+  max_autonomous_risk_tier: "R2"
+  sandboxing:
+    environment: "container"
+    network_access: "restricted"
+    workspace_only_writes: true
+  allowed_tools:
+    - "read_file"
+    - "write_file"
+    - "edit_file"
+    - "search_text"
+    - "list_dir"
+    - "run_shell"
+    - "git"
+  forbidden_actions:
+    - "force_push"
+    - "admin_bypass"
+    - "modify_rulesets"
+    - "modify_branch_protection"
+
+verification:
+  default_profile: "standard"
+  profiles:
+    fast:
+      description: "Fast markdown syntax and formatting checks"
+      commands:
+        - "markdownlint 'docs/**/*.md'"
+        - "prettier --check 'docs/**/*.md'"
+      timeout_seconds: 45
+      working_directory: "."
+      required_on:
+        - "inner_loop"
+        - "on_save"
+    standard:
+      description: "Standard docs build and link checking"
+      commands:
+        - "markdownlint 'docs/**/*.md'"
+        - "lychee --no-progress 'docs/**/*.md'"
+        - "mkdocs build --strict"
+      timeout_seconds: 180
+      working_directory: "."
+      required_on:
+        - "pre_pr"
+        - "pr_review"
+    strict:
+      description: "Full site build, spell check, dead-link crawl, and visual asset verification"
+      commands:
+        - "cspell 'docs/**/*.md'"
+        - "mkdocs build --strict"
+        - "html-validate site/**/*.html"
+      timeout_seconds: 300
+      working_directory: "."
+      artifacts:
+        - "site/"
+      required_on:
+        - "pre_merge"
+        - "release"
+
+review:
+  required_approvals: 1
+  code_review_bots:
+    coderabbit:
+      enabled: true
+      blocking_severities:
+        - "critical"
+        - "high"
+      treat_actionable_as_blocking: false
+  signoff_matrix:
+    r0:
+      required_human_approvals: 0
+      auto_merge_eligible: true
+    r1:
+      required_human_approvals: 0
+      auto_merge_eligible: true
+    r2:
+      required_human_approvals: 1
+      required_roles:
+        - "doc_editor"
+      auto_merge_eligible: false
+    r3:
+      required_human_approvals: 2
+      required_roles:
+        - "doc_lead"
+        - "architect"
+      auto_merge_eligible: false
+  auto_merge:
+    enabled: true
+    allowed_for_actors:
+      - "adev-doc-bot[bot]"
+      - "dependabot[bot]"
+    max_risk_tier: "R1" # Typo fixes and formatting (R0/R1) can auto-merge after passing strict checks
+    merge_method: "squash"
+    required_status_checks:
+      - "docs-build-and-lint"
+      - "link-checker"
+    require_linear_history: true
+    delete_branch_on_merge: true
+  branch_protection:
+    protected_branches:
+      - "main"
+    enforce_admin_bypass_prevention: true
+
+labels:
+  enforce_on_prs: true
+  enforce_on_issues: false
+  taxonomy:
+    risk:
+      prefix: "risk:"
+      required: true
+      enforce_single: true
+      values:
+        - name: "risk:r0"
+          description: "Read-only inspection or advisory feedback"
+          color: "0e8a16"
+        - name: "risk:r1"
+          description: "Non-breaking typo or markdown formatting edit"
+          color: "2cbe4e"
+        - name: "risk:r2"
+          description: "New tutorial, chapter, or API reference update"
+          color: "fbca04"
+        - name: "risk:r3"
+          description: "Site layout overhaul, nav restructure, or theme change"
+          color: "d93f0b"
+    type:
+      prefix: "type:"
+      required: true
+      values:
+        - name: "type:doc"
+          description: "Documentation content addition or update"
+          color: "0052cc"
+        - name: "type:fix"
+          description: "Broken link fix or typo correction"
+          color: "d73a4a"
+        - name: "type:chore"
+          description: "Tooling, theme, or dependency update"
+          color: "cfd3d7"
+
+model_routing:
+  default_tier: "fast"
+  task_profiles:
+    copyedit_and_typos:
+      description: "Fast grammatical edits, spell checking, and markdown formatting"
+      tier: "fast"
+      preferred_models:
+        - "claude-3-5-haiku"
+        - "gemini-2.5-flash"
+        - "gpt-4o-mini"
+      temperature: 0.1
+    article_and_guide_writing:
+      description: "Technical writing, tutorial synthesis, and API conceptual guides"
+      tier: "balanced"
+      preferred_models:
+        - "claude-3-7-sonnet"
+        - "gemini-2.5-pro"
+      temperature: 0.3
+  cost_governance:
+    max_budget_per_run_usd: 3.00
+    max_turns_per_session: 30
+    alert_threshold_usd: 1.50
+
+escalation:
+  contacts:
+    - role: "doc_lead"
+      name: "Technical Documentation Lead"
+      github_handle: "@doc-lead"
+      email: "docs-team@example.com"
+      slack_channel: "#dev-docs"
+  triggers:
+    max_test_retry_loops: 3
+    risk_escalation: true
+    policy_violation: true
+    budget_exceeded: true
+    security_finding: false
+    merge_conflict_unresolvable: true
+  on_escalation: "open_draft_pr_with_failure_summary"

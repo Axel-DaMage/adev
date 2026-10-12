@@ -1,0 +1,198 @@
+{
+  "$schema": "https://adev.dev/schemas/v1/ai-sdlc.schema.json",
+  "version": "1.0",
+  "repository": {
+    "name": "payment-gateway-service",
+    "owner": "fintech-platform",
+    "archetype": "high-assurance-backend",
+    "default_branch": "main"
+  },
+  "autonomy": {
+    "level": 2,
+    "max_autonomous_risk_tier": "R2",
+    "sandboxing": {
+      "environment": "container",
+      "network_access": "restricted",
+      "workspace_only_writes": true
+    },
+    "allowed_tools": [
+      "read_file",
+      "write_file",
+      "edit_file",
+      "search_text",
+      "list_dir",
+      "run_shell",
+      "git"
+    ],
+    "forbidden_actions": [
+      "force_push",
+      "admin_bypass",
+      "modify_rulesets",
+      "modify_branch_protection",
+      "direct_commit_to_main"
+    ]
+  },
+  "verification": {
+    "default_profile": "standard",
+    "profiles": {
+      "fast": {
+        "description": "Inner-loop developer checks",
+        "commands": [
+          "npm run lint",
+          "npm run test:unit:fast"
+        ],
+        "timeout_seconds": 60,
+        "required_on": [
+          "inner_loop",
+          "on_save"
+        ]
+      },
+      "standard": {
+        "description": "Standard pull request verification",
+        "commands": [
+          "npm run typecheck",
+          "npm run test:unit",
+          "npm run test:integration",
+          "npm run build"
+        ],
+        "timeout_seconds": 300,
+        "required_on": [
+          "pre_pr",
+          "pr_review"
+        ]
+      },
+      "strict": {
+        "description": "Pre-merge gate",
+        "commands": [
+          "npm run test:coverage",
+          "npm run security:sast",
+          "npm run test:mutation"
+        ],
+        "timeout_seconds": 900,
+        "coverage_threshold": {
+          "line": 90,
+          "branch": 85
+        },
+        "artifacts": [
+          "coverage/lcov.info"
+        ],
+        "required_on": [
+          "pre_merge",
+          "release"
+        ]
+      }
+    }
+  },
+  "review": {
+    "required_approvals": 2,
+    "code_review_bots": {
+      "coderabbit": {
+        "enabled": true,
+        "blocking_severities": [
+          "critical",
+          "high",
+          "BLOCKING"
+        ]
+      }
+    },
+    "signoff_matrix": {
+      "r0": {
+        "required_human_approvals": 0
+      },
+      "r1": {
+        "required_human_approvals": 1
+      },
+      "r2": {
+        "required_human_approvals": 2,
+        "required_roles": [
+          "maintainer"
+        ]
+      },
+      "r3": {
+        "required_human_approvals": 3,
+        "required_roles": [
+          "architect",
+          "security_lead"
+        ]
+      }
+    },
+    "auto_merge": {
+      "enabled": false,
+      "max_risk_tier": "R0",
+      "merge_method": "squash"
+    },
+    "branch_protection": {
+      "protected_branches": [
+        "main"
+      ],
+      "enforce_admin_bypass_prevention": true
+    }
+  },
+  "labels": {
+    "enforce_on_prs": true,
+    "taxonomy": {
+      "risk": {
+        "prefix": "risk:",
+        "required": true,
+        "enforce_single": true,
+        "values": [
+          {
+            "name": "risk:r0",
+            "description": "Read-only inspection",
+            "color": "0e8a16"
+          },
+          {
+            "name": "risk:r1",
+            "description": "Reversible local mutation",
+            "color": "2cbe4e"
+          },
+          {
+            "name": "risk:r2",
+            "description": "Shared PR mutation",
+            "color": "fbca04"
+          },
+          {
+            "name": "risk:r3",
+            "description": "High-impact privileged mutation",
+            "color": "d93f0b"
+          }
+        ]
+      }
+    }
+  },
+  "model_routing": {
+    "default_tier": "balanced",
+    "task_profiles": {
+      "architecture": {
+        "tier": "reasoning",
+        "preferred_models": [
+          "claude-3-7-sonnet",
+          "o3-mini"
+        ]
+      }
+    },
+    "cost_governance": {
+      "max_budget_per_run_usd": 10.0,
+      "max_turns_per_session": 60
+    }
+  },
+  "escalation": {
+    "contacts": [
+      {
+        "role": "architect",
+        "name": "Lead System Architect",
+        "github_handle": "@payments-architect",
+        "email": "architect@example.com"
+      }
+    ],
+    "triggers": {
+      "max_test_retry_loops": 3,
+      "risk_escalation": true,
+      "policy_violation": true,
+      "budget_exceeded": true,
+      "security_finding": true,
+      "merge_conflict_unresolvable": true
+    },
+    "on_escalation": "stop_and_notify"
+  }
+}

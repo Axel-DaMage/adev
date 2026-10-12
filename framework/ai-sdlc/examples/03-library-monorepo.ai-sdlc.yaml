@@ -1,0 +1,203 @@
+# .ai-sdlc.yaml
+# Archetype: Open-Source Library / Monorepo (Multi-target SDK)
+$schema: "https://adev.dev/schemas/v1/ai-sdlc.schema.json"
+version: "1.0"
+
+repository:
+  name: "adev-client-sdk"
+  owner: "adev-ecosystem"
+  archetype: "library"
+  default_branch: "main"
+  description: "Cross-platform TypeScript/Node.js client library with strict semver and binary stability"
+  tags:
+    - "sdk"
+    - "typescript"
+    - "library"
+    - "monorepo"
+
+autonomy:
+  level: 2 # Autonomous PR: Agent delivers atomic PRs with comprehensive cross-platform tests
+  max_autonomous_risk_tier: "R2"
+  sandboxing:
+    environment: "container"
+    network_access: "restricted"
+    workspace_only_writes: true
+  allowed_tools:
+    - "read_file"
+    - "write_file"
+    - "edit_file"
+    - "search_text"
+    - "list_dir"
+    - "run_shell"
+    - "git"
+  forbidden_actions:
+    - "force_push"
+    - "admin_bypass"
+    - "modify_rulesets"
+    - "modify_branch_protection"
+    - "publish_to_npm_unreviewed"
+
+verification:
+  default_profile: "standard"
+  profiles:
+    fast:
+      description: "Quick inner-loop lint and typecheck"
+      commands:
+        - "pnpm lint"
+        - "pnpm typecheck"
+      timeout_seconds: 60
+      working_directory: "."
+      required_on:
+        - "inner_loop"
+        - "on_save"
+    standard:
+      description: "Multi-package build and unit test matrix"
+      commands:
+        - "pnpm lint"
+        - "pnpm typecheck"
+        - "pnpm test"
+        - "pnpm build"
+      timeout_seconds: 300
+      working_directory: "."
+      required_on:
+        - "pre_pr"
+        - "pr_review"
+    strict:
+      description: "Semver compatibility check, full integration suite, and bundle size analysis"
+      commands:
+        - "pnpm test:coverage"
+        - "pnpm test:e2e"
+        - "pnpm check:semver"
+        - "pnpm check:bundle-size"
+      timeout_seconds: 600
+      working_directory: "."
+      coverage_threshold:
+        line: 85
+        branch: 80
+      artifacts:
+        - "coverage/lcov.info"
+        - "packages/*/dist/"
+      required_on:
+        - "pre_merge"
+        - "release"
+
+review:
+  required_approvals: 1
+  code_review_bots:
+    coderabbit:
+      enabled: true
+      blocking_severities:
+        - "critical"
+        - "high"
+        - "BLOCKING"
+      treat_actionable_as_blocking: true
+  signoff_matrix:
+    r0:
+      required_human_approvals: 0
+      auto_merge_eligible: false
+    r1:
+      required_human_approvals: 1
+      auto_merge_eligible: false
+    r2:
+      required_human_approvals: 1
+      required_roles:
+        - "sdk_maintainer"
+      auto_merge_eligible: false
+    r3:
+      required_human_approvals: 2
+      required_roles:
+        - "sdk_lead"
+        - "architect"
+      auto_merge_eligible: false
+  auto_merge:
+    enabled: false
+    merge_method: "squash"
+    required_status_checks:
+      - "ci/matrix-test"
+      - "ci/semver-check"
+    require_linear_history: true
+    delete_branch_on_merge: true
+  branch_protection:
+    protected_branches:
+      - "main"
+      - "release/*"
+    enforce_admin_bypass_prevention: true
+
+labels:
+  enforce_on_prs: true
+  enforce_on_issues: true
+  taxonomy:
+    risk:
+      prefix: "risk:"
+      required: true
+      enforce_single: true
+      values:
+        - name: "risk:r0"
+          description: "Read-only inspection"
+          color: "0e8a16"
+        - name: "risk:r1"
+          description: "Internal refactor or test-only addition"
+          color: "2cbe4e"
+        - name: "risk:r2"
+          description: "Public API addition (backwards-compatible)"
+          color: "fbca04"
+        - name: "risk:r3"
+          description: "Breaking API change or major version bump"
+          color: "d93f0b"
+    type:
+      prefix: "type:"
+      required: true
+      values:
+        - name: "type:feat"
+          description: "New SDK feature or method"
+          color: "a2eeef"
+        - name: "type:fix"
+          description: "Bug fix in SDK runtime"
+          color: "d73a4a"
+        - name: "type:breaking"
+          description: "Breaking change requiring major semver bump"
+          color: "b60205"
+        - name: "type:perf"
+          description: "Performance optimization"
+          color: "f9d0c4"
+        - name: "type:doc"
+          description: "TSDoc or API usage docs"
+          color: "0052cc"
+
+model_routing:
+  default_tier: "balanced"
+  task_profiles:
+    api_design_and_types:
+      description: "Complex TypeScript generics, API stability review, and typing contracts"
+      tier: "reasoning"
+      preferred_models:
+        - "claude-3-7-sonnet"
+        - "o3-mini"
+      temperature: 0.1
+    implementation_and_tests:
+      description: "Feature implementations and test suites"
+      tier: "balanced"
+      preferred_models:
+        - "claude-3-7-sonnet"
+        - "gemini-2.5-pro"
+      temperature: 0.2
+  cost_governance:
+    max_budget_per_run_usd: 6.00
+    max_turns_per_session: 45
+    alert_threshold_usd: 3.00
+
+escalation:
+  contacts:
+    - role: "sdk_lead"
+      name: "SDK Maintainer Team"
+      github_handle: "@sdk-maintainers"
+      email: "sdk-team@example.com"
+      slack_channel: "#sdk-dev"
+  triggers:
+    max_test_retry_loops: 3
+    risk_escalation: true
+    policy_violation: true
+    budget_exceeded: true
+    security_finding: true
+    merge_conflict_unresolvable: true
+  on_escalation: "stop_and_notify"
