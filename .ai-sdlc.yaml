@@ -1,0 +1,183 @@
+# .ai-sdlc.yaml
+# Canonical AI-SDLC configuration for Axel-DaMage/adev repository
+$schema: "framework/ai-sdlc.schema.json"
+version: "1.0"
+
+repository:
+  name: "adev"
+  owner: "Axel-DaMage"
+  archetype: "docs-site"
+  default_branch: "main"
+  description: "A-Dev framework, manuscript source, starter kit, and proof assets for AI-assisted software delivery"
+  tags:
+    - "adev"
+    - "ai-sdlc"
+    - "framework"
+    - "manuscript"
+    - "governance"
+
+autonomy:
+  level: 2 # Autonomous PR: Agent creates feature worktree, implements, verifies, and delivers atomic PR
+  max_autonomous_risk_tier: "R2"
+  sandboxing:
+    environment: "container"
+    network_access: "restricted"
+    workspace_only_writes: true
+  allowed_tools:
+    - "read_file"
+    - "write_file"
+    - "edit_file"
+    - "search_text"
+    - "list_dir"
+    - "run_shell"
+    - "git"
+  forbidden_actions:
+    - "force_push"
+    - "admin_bypass"
+    - "modify_rulesets"
+    - "modify_branch_protection"
+    - "direct_commit_to_main"
+
+verification:
+  default_profile: "standard"
+  profiles:
+    fast:
+      description: "Fast inner-loop checks and schema validation"
+      commands:
+        - "python3 framework/ai-sdlc/scripts/validate-ai-sdlc.py .ai-sdlc.yaml"
+      timeout_seconds: 30
+      required_on:
+        - "inner_loop"
+        - "on_save"
+    standard:
+      description: "Standard CI validation across AI-SDLC test suite and framework fixtures"
+      commands:
+        - "python3 framework/ai-sdlc/scripts/test-validator.py"
+        - "python3 framework/ai-sdlc/scripts/validate-ai-sdlc.py .ai-sdlc.yaml"
+      timeout_seconds: 120
+      required_on:
+        - "pre_pr"
+        - "pr_review"
+    strict:
+      description: "Comprehensive multi-surface audit"
+      commands:
+        - "python3 framework/ai-sdlc/scripts/test-validator.py"
+        - "python3 framework/ai-sdlc/scripts/validate-ai-sdlc.py .ai-sdlc.yaml"
+      timeout_seconds: 300
+      required_on:
+        - "pre_merge"
+        - "release"
+
+review:
+  required_approvals: 1
+  code_review_bots:
+    coderabbit:
+      enabled: true
+      blocking_severities:
+        - "critical"
+        - "high"
+        - "BLOCKING"
+      treat_actionable_as_blocking: false
+  signoff_matrix:
+    r0:
+      required_human_approvals: 0
+      auto_merge_eligible: false
+    r1:
+      required_human_approvals: 0
+      auto_merge_eligible: false
+    r2:
+      required_human_approvals: 1
+      required_roles:
+        - "maintainer"
+      auto_merge_eligible: false
+    r3:
+      required_human_approvals: 2
+      required_roles:
+        - "architect"
+      auto_merge_eligible: false
+  auto_merge:
+    enabled: false
+    max_risk_tier: "R1"
+    merge_method: "squash"
+    required_status_checks:
+      - "build-site"
+    require_linear_history: true
+    delete_branch_on_merge: true
+  branch_protection:
+    protected_branches:
+      - "main"
+    enforce_admin_bypass_prevention: true
+
+labels:
+  enforce_on_prs: true
+  enforce_on_issues: false
+  taxonomy:
+    risk:
+      prefix: "risk:"
+      required: true
+      enforce_single: true
+      values:
+        - name: "risk:r0"
+          description: "Read-only inspection"
+          color: "0e8a16"
+        - name: "risk:r1"
+          description: "Reversible local mutation or typo edit"
+          color: "2cbe4e"
+        - name: "risk:r2"
+          description: "Shared multi-party mutation (PR)"
+          color: "fbca04"
+        - name: "risk:r3"
+          description: "High-impact privileged mutation (framework contract change)"
+          color: "d93f0b"
+    type:
+      prefix: "type:"
+      required: true
+      values:
+        - name: "type:spec"
+          description: "Specification, contract, or schema definition"
+          color: "0075ca"
+        - name: "type:feat"
+          description: "New framework capability or tool"
+          color: "a2eeef"
+        - name: "type:doc"
+          description: "Manuscript, guidance, or documentation update"
+          color: "0052cc"
+        - name: "type:fix"
+          description: "Bug fix or defect correction"
+          color: "d73a4a"
+
+model_routing:
+  default_tier: "balanced"
+  task_profiles:
+    architecture_and_specs:
+      description: "Framework specifications, normative schemas, and conceptual matrix alignment"
+      tier: "reasoning"
+      preferred_models:
+        - "claude-3-7-sonnet"
+        - "o3-mini"
+      temperature: 0.1
+    content_and_manuscript:
+      description: "Manuscript prose, editorial reviews, and starter kit templates"
+      tier: "balanced"
+      preferred_models:
+        - "claude-3-7-sonnet"
+        - "gemini-2.5-pro"
+      temperature: 0.2
+  cost_governance:
+    max_budget_per_run_usd: 5.00
+    max_turns_per_session: 50
+
+escalation:
+  contacts:
+    - role: "architect"
+      name: "A-Dev Maintainer"
+      github_handle: "@scanalesespinoza"
+      email: "maintainers@adev.dev"
+  triggers:
+    max_test_retry_loops: 3
+    risk_escalation: true
+    policy_violation: true
+    budget_exceeded: true
+    security_finding: true
+    merge_conflict_unresolvable: true
+  on_escalation: "stop_and_notify"

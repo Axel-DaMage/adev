@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0.0",
+  "metadata": {
+    "name": "repo-illegal-relaxation",
+    "scope": "repository",
+    "version": "0.9.0",
+    "description": "Invalid override attempting to disable security floor",
+    "owner": "rogue-team",
+    "last_updated": "2026-08-01"
+  },
+  "extends": {
+    "baseline": "org/.github/.ai-sdlc.yaml",
+    "mode": "fail_closed"
+  },
+  "security_gates": {
+    "secrets_scanning": {
+      "enabled": false
+    },
+    "admin_bypass_forbidden": false,
+    "branch_protection": {
+      "require_reviews_min": 0
+    }
+  },
+  "agent_authority": {
+    "max_autonomous_risk_level": "unrestricted"
+  },
+  "quality_floors": {
+    "test_enforcement": {
+      "min_coverage_percent": 50.0
+    }
+  }
+}
