@@ -29,7 +29,7 @@ This model classifies agent actions by effect, then defines the minimum autonomy
 | Rotate or revoke a credential | R2 | No | Explicit system-specific approval | Authorization and rotation outcome | Service ownership, impact, or recovery is unclear. |
 | Push a branch to a remote | R3 | Only when publishing is explicitly authorized | Explicit publication approval | Remote, branch, commit SHA, push result | Remote, branch, or commit differs from the contract. |
 | Open a pull request | R3 | Only when PR creation is explicitly authorized | Explicit PR approval | PR URL, base/head, scope, validation | PR body would claim unverified evidence or target is wrong. |
-| Merge a pull request | R3 | No, unless protected workflow and explicit merge authorization both permit it | Explicit merge approval after current-state revalidation | Checks, reviews, threads, SHA guard, merge result | Conflicts, failed checks, concurrent changes, or pending feedback. |
+| Merge a pull request | R3 | No, unless protected workflow and explicit merge authorization both permit it (see [Autonomous Review Policy](08-autonomous-review-and-merge-gate-policy.md)) | Explicit merge approval after current-state revalidation | Checks, reviews, threads, SHA guard, merge result | Conflicts, failed checks, concurrent changes, or pending feedback. |
 | Send an external message or publish content | R3 | No | Explicit recipient/content approval | Recipient, final content, delivery result | Recipient, content, privacy, or factual basis is uncertain. |
 
 ## Application rules

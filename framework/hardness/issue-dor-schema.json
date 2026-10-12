@@ -1,0 +1,131 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "A-Dev Hardness Issue Definition-of-Ready Contract",
+  "description": "Vendor-neutral structural JSON schema for agent-consumable issues in the AI-SDLC intake phase.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "title",
+    "type",
+    "priority",
+    "risk_tier",
+    "context",
+    "objective",
+    "in_scope",
+    "out_of_scope",
+    "acceptance_criteria",
+    "context_attachments",
+    "verification_contract"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_#.-]+$",
+      "description": "Unique tracking identifier for the issue (e.g. #104, PROJ-123)."
+    },
+    "title": {
+      "type": "string",
+      "pattern": "^(spec|feat|fix|refactor|docs|test|chore|infra)(\\([a-z0-9_-]+\\))?:\\s.+",
+      "description": "Structured issue summary conforming to Conventional Commits."
+    },
+    "type": {
+      "type": "string",
+      "enum": ["spec", "feat", "fix", "refactor", "docs", "test", "chore", "infra"],
+      "description": "Category of work."
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"],
+      "description": "Business or operational urgency."
+    },
+    "risk_tier": {
+      "type": "string",
+      "enum": [
+        "T0_READ_ONLY",
+        "T1_LOCAL_REVERSIBLE",
+        "T2_WORKSPACE_BRANCH",
+        "T3_EXTERNAL_PERSISTENT"
+      ],
+      "description": "Risk authority tier from Hardness Action Risk Model."
+    },
+    "context": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Problem statement, architecture context, and rationale."
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 300,
+      "description": "Single-sentence, unambiguous statement of the target state."
+    },
+    "in_scope": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Explicit positive scope: files and deliverables authorized for change."
+    },
+    "out_of_scope": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Explicit negative scope: surfaces that must not be altered."
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 5
+      },
+      "description": "List of verifiable, binary pass/fail conditions."
+    },
+    "context_attachments": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Repository-relative file paths or durable references."
+    },
+    "verification_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "expected_evidence"],
+      "properties": {
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Deterministic CLI command used to verify the change."
+        },
+        "expected_evidence": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Expected observable outcome, exit code, or artifact output."
+        }
+      }
+    },
+    "step_budget": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "description": "Optional maximum execution step budget."
+    },
+    "stop_conditions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Conditions requiring immediate execution halt and human escalation."
+    }
+  }
+}
