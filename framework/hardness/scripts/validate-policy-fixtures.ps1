@@ -101,12 +101,19 @@ function Test-PolicyRecord {
 }
 
 $schema = Get-JsonObject $SchemaPath
-$validErrors = Test-PolicyRecord (Get-JsonObject $ValidFixturePath) $schema
-$invalidErrors = Test-PolicyRecord (Get-JsonObject $InvalidFixturePath) $schema
-
-if ($validErrors.Count -gt 0) {
-    throw "Expected valid fixture to satisfy schema: $($validErrors -join ' ')"
+$validFixtures = @($ValidFixturePath)
+$injectionFixturePath = Join-Path $scriptDirectory '..\fixtures\valid-prompt-injection-policy.json'
+if (Test-Path -LiteralPath $injectionFixturePath) {
+    $validFixtures += $injectionFixturePath
 }
+
+foreach ($vf in $validFixtures) {
+    $validErrors = Test-PolicyRecord (Get-JsonObject $vf) $schema
+    if ($validErrors.Count -gt 0) {
+        throw "Expected valid fixture '$vf' to satisfy schema: $($validErrors -join ' ')"
+    }
+}
+$invalidErrors = Test-PolicyRecord (Get-JsonObject $InvalidFixturePath) $schema
 
 if ($invalidErrors.Count -eq 0) {
     throw 'Expected invalid fixture to fail schema.'
