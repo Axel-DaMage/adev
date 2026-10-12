@@ -1,0 +1,167 @@
+# .ai-sdlc.yaml (Starter Template)
+# Copy this file to your repository root as .ai-sdlc.yaml
+$schema: "https://adev.dev/schemas/v1/ai-sdlc.schema.json"
+version: "1.0"
+
+repository:
+  name: "<your-repo-name>"
+  owner: "<your-org-or-username>"
+  archetype: "microservice" # high-assurance-backend | microservice | library | docs-site | frontend-web | cli-tool
+  default_branch: "main"
+
+autonomy:
+  level: 2 # 0: Advisory | 1: Assisted | 2: Autonomous PR | 3: Guarded Merge | 4: Full Lifecycle
+  max_autonomous_risk_tier: "R2" # R0: Read-only | R1: Local mutation | R2: PR | R3: Merge/Deploy
+  sandboxing:
+    environment: "container"
+    network_access: "restricted"
+    workspace_only_writes: true
+  allowed_tools:
+    - "read_file"
+    - "write_file"
+    - "edit_file"
+    - "search_text"
+    - "list_dir"
+    - "run_shell"
+    - "git"
+  forbidden_actions:
+    - "force_push"
+    - "admin_bypass"
+    - "modify_rulesets"
+    - "modify_branch_protection"
+
+verification:
+  default_profile: "standard"
+  profiles:
+    fast:
+      description: "Inner-loop quick validation"
+      commands:
+        - "npm run lint"
+        - "npm run test:fast"
+      timeout_seconds: 60
+      required_on:
+        - "inner_loop"
+        - "on_save"
+    standard:
+      description: "Full pull request verification"
+      commands:
+        - "npm run lint"
+        - "npm run typecheck"
+        - "npm test"
+        - "npm run build"
+      timeout_seconds: 300
+      required_on:
+        - "pre_pr"
+        - "pr_review"
+    strict:
+      description: "Release and merge gating suite"
+      commands:
+        - "npm run test:coverage"
+        - "npm run test:e2e"
+      timeout_seconds: 600
+      coverage_threshold:
+        line: 80
+        branch: 75
+      required_on:
+        - "pre_merge"
+        - "release"
+
+review:
+  required_approvals: 1
+  code_review_bots:
+    coderabbit:
+      enabled: true
+      blocking_severities:
+        - "critical"
+        - "high"
+      treat_actionable_as_blocking: false
+  signoff_matrix:
+    r0:
+      required_human_approvals: 0
+      auto_merge_eligible: false
+    r1:
+      required_human_approvals: 0
+      auto_merge_eligible: false
+    r2:
+      required_human_approvals: 1
+      auto_merge_eligible: false
+    r3:
+      required_human_approvals: 2
+      auto_merge_eligible: false
+  auto_merge:
+    enabled: false
+    merge_method: "squash"
+    required_status_checks:
+      - "ci/test"
+    require_linear_history: true
+    delete_branch_on_merge: true
+  branch_protection:
+    protected_branches:
+      - "main"
+    enforce_admin_bypass_prevention: true
+
+labels:
+  enforce_on_prs: true
+  taxonomy:
+    risk:
+      prefix: "risk:"
+      required: true
+      enforce_single: true
+      values:
+        - name: "risk:r0"
+          description: "Read-only inspection"
+          color: "0e8a16"
+        - name: "risk:r1"
+          description: "Reversible local mutation"
+          color: "2cbe4e"
+        - name: "risk:r2"
+          description: "Shared PR mutation"
+          color: "fbca04"
+        - name: "risk:r3"
+          description: "High-impact privileged mutation"
+          color: "d93f0b"
+    type:
+      prefix: "type:"
+      required: true
+      values:
+        - name: "type:feat"
+          description: "New feature"
+          color: "a2eeef"
+        - name: "type:fix"
+          description: "Bug fix"
+          color: "d73a4a"
+        - name: "type:doc"
+          description: "Documentation"
+          color: "0052cc"
+
+model_routing:
+  default_tier: "balanced"
+  task_profiles:
+    architecture:
+      tier: "reasoning"
+      preferred_models:
+        - "claude-3-7-sonnet"
+        - "o3-mini"
+    coding:
+      tier: "balanced"
+      preferred_models:
+        - "claude-3-7-sonnet"
+        - "gemini-2.5-pro"
+  cost_governance:
+    max_budget_per_run_usd: 5.00
+    max_turns_per_session: 50
+
+escalation:
+  contacts:
+    - role: "maintainer"
+      name: "Repository Maintainer"
+      github_handle: "@maintainer-handle"
+      email: "maintainer@example.com"
+  triggers:
+    max_test_retry_loops: 3
+    risk_escalation: true
+    policy_violation: true
+    budget_exceeded: true
+    security_finding: true
+    merge_conflict_unresolvable: true
+  on_escalation: "stop_and_notify"

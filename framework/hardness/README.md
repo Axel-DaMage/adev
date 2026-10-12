@@ -16,6 +16,7 @@ It is not presented as an external technical standard. It is a working A-Dev ter
 8. [`07-compatibility-layer.md`](07-compatibility-layer.md) defines portable Hardness contracts and runtime adaptation without a runtime dependency.
 9. [`08-trust-ladder-and-autonomy-levels.md`](08-trust-ladder-and-autonomy-levels.md) establishes the six canonical autonomy levels (`shadow`, `suggest`, `auto-PR`, `auto-merge-low`, `auto-merge-all`, `auto-deploy`), promotion criteria, demotion triggers, and SLOs.
 10. [`09-per-repo-configuration.md`](09-per-repo-configuration.md) defines per-repository autonomy configuration via `.ai-sdlc.yaml` and the [`ai-sdlc-schema.json`](ai-sdlc-schema.json) contract.
+9. [`08-org-wide-policy-model.md`](08-org-wide-policy-model.md) defines the normative specification for organization-wide `.ai-sdlc.yaml` resolution, inheritance, field merge semantics, and non-overridable security floors across repository fleets.
 
 ## Relationship to A-Dev
 

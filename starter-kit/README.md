@@ -13,7 +13,9 @@ This is the implementation kit for the [A-Dev practice](../framework/README.md).
 
 ## Existing assets
 - `.ai-sdlc.yaml`: canonical per-repository autonomy and trust ladder configuration.
+- `ai-sdlc_template.yaml`: declarative AI-SDLC configuration contract for autonomous agents, CI gates, review policy, and Progressive Autonomy Ladder.
 - `BASELINE_template.json`: machine-readable baseline seed.
+- `.ai-sdlc.yaml`: repository AI SDLC policy template inheriting organizational baseline rulesets and non-overridable security floors.
 - `DECISION_LOG.md`: capture decisions and reversals.
 - `QUALITY_CYCLE_checklist.md`: broad quality cycle checklist.
 

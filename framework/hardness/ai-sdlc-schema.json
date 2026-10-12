@@ -18,10 +18,8 @@
       "description": "SemVer version identifier for the schema format."
     },
     "repository": {
-      "type": "string",
       "minLength": 1,
       "description": "Repository identifier (e.g. owner/repo)."
-    },
     "trust_ladder": {
       "type": "object",
       "additionalProperties": false,
@@ -39,9 +37,7 @@
           "description": "Active operational autonomy level."
         },
         "target_level": {
-          "$ref": "#/definitions/autonomyLevel",
           "description": "Target autonomy level for upcoming promotion evaluation."
-        },
         "evaluation_window": {
           "type": "object",
           "additionalProperties": false,
@@ -53,15 +49,10 @@
               "description": "Minimum sample size of pull requests required for promotion evaluation."
             },
             "min_days": {
-              "type": "integer",
-              "minimum": 1,
               "description": "Minimum calendar duration required at the current level."
             }
           }
-        },
         "promotion_gates": {
-          "type": "object",
-          "additionalProperties": false,
           "required": [
             "min_merge_success_rate",
             "max_revert_rate",
@@ -69,147 +60,71 @@
             "min_ci_first_pass_rate",
             "min_policy_conformance_rate"
           ],
-          "properties": {
             "min_merge_success_rate": {
               "type": "number",
               "minimum": 0.0,
               "maximum": 1.0,
               "description": "Minimum proportion of agent PRs merged without human rework (0.0 - 1.0)."
-            },
             "max_revert_rate": {
-              "type": "number",
-              "minimum": 0.0,
-              "maximum": 1.0,
               "description": "Maximum allowed revert rate over the evaluation window (0.0 - 1.0)."
-            },
             "max_escalation_rate": {
-              "type": "number",
-              "minimum": 0.0,
-              "maximum": 1.0,
               "description": "Maximum allowed escalation or human takeover rate (0.0 - 1.0)."
-            },
             "min_ci_first_pass_rate": {
-              "type": "number",
-              "minimum": 0.0,
-              "maximum": 1.0,
               "description": "Minimum proportion of PRs passing CI on the first run (0.0 - 1.0)."
-            },
             "min_policy_conformance_rate": {
-              "type": "number",
-              "minimum": 0.0,
-              "maximum": 1.0,
               "description": "Required policy compliance rate (typically 1.00)."
-            }
-          }
-        },
         "demotion_triggers": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
             "instant_demotion_on_security_breach",
             "demote_to_level"
-          ],
-          "properties": {
             "max_revert_rate_slo": {
-              "type": "number",
-              "minimum": 0.0,
-              "maximum": 1.0,
               "description": "Maximum allowable revert rate before automatic demotion."
-            },
             "max_consecutive_failures": {
-              "type": "integer",
-              "minimum": 1,
               "description": "Consecutive CI or merge failures triggering automatic demotion."
-            },
             "max_escalation_rate_slo": {
-              "type": "number",
-              "minimum": 0.0,
-              "maximum": 1.0,
               "description": "Maximum allowable escalation rate before automatic demotion."
-            },
             "instant_demotion_on_security_breach": {
               "type": "boolean",
               "description": "Whether an unauthorized R2/R3 action or security rule breach triggers instant demotion."
-            },
             "demote_to_level": {
               "$ref": "#/definitions/autonomyLevel",
               "description": "Target fallback level upon demotion."
-            }
-          }
-        },
         "rehabilitation": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
             "cooldown_days",
             "required_clean_runs",
             "requires_human_signoff"
-          ],
-          "properties": {
             "cooldown_days": {
-              "type": "integer",
               "minimum": 0,
               "description": "Minimum calendar days to remain at demoted level before re-evaluation."
-            },
             "required_clean_runs": {
-              "type": "integer",
-              "minimum": 1,
               "description": "Minimum consecutive defect-free PRs required before promotion re-evaluation."
-            },
             "requires_human_signoff": {
-              "type": "boolean",
               "description": "Whether human architect sign-off is required to restore trust level."
-            }
-          }
         }
       }
-    },
     "risk_boundaries": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
         "low_risk_paths",
         "high_risk_paths",
         "protected_branches"
-      ],
-      "properties": {
         "low_risk_paths": {
           "$ref": "#/definitions/nonEmptyStringArray",
           "description": "Glob patterns eligible for autonomous merge at Level 3 (auto-merge-low)."
-        },
         "high_risk_paths": {
-          "$ref": "#/definitions/nonEmptyStringArray",
           "description": "Glob patterns strictly requiring human review and approval."
-        },
         "protected_branches": {
-          "$ref": "#/definitions/nonEmptyStringArray",
           "description": "Target branches governed by hardness merge policies."
-        }
-      }
-    },
     "automated_merge_rules": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
         "require_all_ci_passing",
         "require_zero_blocking_reviews",
         "require_no_unresolved_comments",
         "allowed_merge_methods",
         "delete_branch_after_merge"
-      ],
-      "properties": {
         "require_all_ci_passing": {
           "type": "boolean",
           "description": "Require 100% passing status checks prior to merge."
-        },
         "require_zero_blocking_reviews": {
-          "type": "boolean",
           "description": "Require zero changes requested or blocking reviews."
-        },
         "require_no_unresolved_comments": {
-          "type": "boolean",
           "description": "Require all review comments and bot feedback to be resolved."
-        },
         "allowed_merge_methods": {
           "type": "array",
           "minItems": 1,
@@ -218,66 +133,37 @@
             "enum": ["merge", "squash", "rebase"]
           },
           "description": "Allowed Git merge strategies."
-        },
         "delete_branch_after_merge": {
-          "type": "boolean",
           "description": "Automatically delete feature branch after successful merge."
-        }
-      }
-    },
     "deployment": {
-      "type": "object",
-      "additionalProperties": false,
       "required": ["enabled"],
-      "properties": {
         "enabled": {
-          "type": "boolean",
           "description": "Enable automated deployment pipelines at Level 5."
-        },
         "target_environments": {
-          "$ref": "#/definitions/nonEmptyStringArray",
           "description": "Target environments for autonomous deployment."
-        },
         "canary_verification_duration_minutes": {
           "type": "integer",
           "minimum": 0,
           "description": "Duration in minutes to monitor canary telemetry before full rollout."
-        },
         "auto_rollback_on_health_failure": {
-          "type": "boolean",
           "description": "Automatically trigger zero-downtime rollback on canary anomaly."
-        }
-      }
-    },
     "audit_and_observability": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
         "log_decisions",
         "evidence_retention",
         "metrics_collection"
-      ],
-      "properties": {
         "log_decisions": {
-          "type": "boolean",
           "description": "Record all tool and policy decisions in execution logs."
-        },
         "evidence_retention": {
           "type": "string",
           "enum": ["repository-record", "external-record", "ephemeral"],
           "description": "Retention mechanism for expectation and verification records."
-        },
         "metrics_collection": {
-          "type": "string",
           "enum": ["git-native", "ci-telemetry", "external-apm"],
           "description": "Primary signal source for Trust Ladder metric calculation."
-        }
-      }
     }
   },
   "definitions": {
     "autonomyLevel": {
-      "type": "string",
       "enum": [
         "shadow",
         "suggest",
@@ -286,14 +172,113 @@
         "auto-merge-all",
         "auto-deploy"
       ]
-    },
     "nonEmptyStringArray": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "string",
         "minLength": 1
-      }
+  "title": "A-Dev Hardness AI SDLC Policy Configuration (.ai-sdlc.yaml)",
+  "description": "Vendor-neutral structural contract for organization-wide baseline and repository-level AI SDLC policy configurations.",
+    "schema_version",
+    "metadata"
+    "schema_version": {
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    "metadata": {
+        "name",
+        "scope",
+        "version",
+        "owner"
+        "name": {
+          "minLength": 1
+        "scope": {
+          "enum": [
+            "organization",
+            "repository",
+            "group"
+          ]
+        "version": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        "description": {
+          "type": "string"
+        "owner": {
+        "last_updated": {
+    "extends": {
+        "baseline": {
+        "mode": {
+            "fail_closed",
+            "clamp_and_warn"
+    "security_gates": {
+        "secrets_scanning": {
+            "enabled": {
+              "type": "boolean"
+            "block_on_detect": {
+        "vulnerability_threshold": {
+            "max_allowed_severity": {
+              "type": "string",
+              "enum": [
+                "none",
+                "low",
+                "medium",
+                "high",
+                "critical"
+              ]
+            "block_pr_on_floor": {
+        "admin_bypass_forbidden": {
+          "type": "boolean"
+        "branch_protection": {
+            "require_reviews_min": {
+              "minimum": 0
+            "block_force_push": {
+            "require_linear_history": {
+        "protected_paths": {
+            "minLength": 1
+        "sandbox_isolation": {
+            "required": {
+            "min_isolation_level": {
+                "process",
+                "container",
+                "vm"
+    "agent_authority": {
+        "max_autonomous_risk_level": {
+            "read_only",
+            "low_risk_write",
+            "medium_risk_write",
+            "high_risk_write",
+            "unrestricted"
+        "require_human_approval_for_risk_ge": {
+        "allowed_tools": {
+        "forbidden_tools": {
+        "network_access": {
+            "allowed_domains": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            "forbidden_domains": {
+    "quality_floors": {
+        "test_enforcement": {
+            "require_tests_for_new_features": {
+            "min_coverage_percent": {
+              "maximum": 100
+        "verification": {
+            "require_clean_reproduction": {
+            "reproduction_command_required": {
+        "atomic_iterations": {
+            "max_diff_lines_per_iteration": {
+              "minimum": 1
+            "max_files_per_iteration": {
+    "review_and_audit": {
+        "pr_review_workflow": {
+            "enforce_5_step_review": {
+            "require_impact_analysis": {
+        "audit": {
+            "structured_logging_enabled": {
+            "retention_min_days": {
+            "record_prompts_and_tool_calls": {
+    "extensions": {
+      "additionalProperties": true
     }
   }
 }
