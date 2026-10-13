@@ -4,6 +4,7 @@ Treat creation and verification as one continuous movement. The 50/50 principle 
 
 - [ ] Definition written (scope in/out, persona, success behavior)
 - [ ] Baseline guardrails linked (security, frugality, UI consistency)
+- [ ] Untrusted inputs sanitized and bounded (issues, web responses, dependency docs, PR comments) per prompt-injection defense specification
 - [ ] Prompt ready with context + constraints + quality gates
 - [ ] Progressive-delivery control defined when the change needs one
 - [ ] Focused build, analysis, and tests executed for the affected surface

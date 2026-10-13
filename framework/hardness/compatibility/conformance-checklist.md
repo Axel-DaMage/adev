@@ -6,6 +6,7 @@ Run this checklist locally for a proposed runtime adaptation. It does not requir
 - [ ] The profile maps policy IDs, scope, authority, precedence, exceptions, owner, review, expiry, and evidence requirements.
 - [ ] The profile maps skill triggers, non-triggers, permissions, effects, invariants, uncertainty, stop/escalate, evidence, and validation.
 - [ ] The profile preserves the human expectation and action-risk boundaries or records a gap.
+- [ ] The profile maps untrusted content handling and enforces trust boundaries (T0–T4), sanitization, and forbidden-action rules from the [prompt-injection defense specification](../08-prompt-injection-defense.md).
 - [ ] The profile records how evaluations keep scenario, expected decision, evidence, and safe failure separate from runtime proof.
 - [ ] The profile states unsupported fields and does not silently weaken a portable boundary.
 - [ ] The profile does not claim official support, certification, or a vendor dependency.
