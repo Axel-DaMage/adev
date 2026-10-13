@@ -1,59 +1,81 @@
-# A-Dev AI SDLC Repository Policy Template
-# Place this file at repository root (`.ai-sdlc.yaml`) or `.github/.ai-sdlc.yaml`.
-# This configuration inherits organizational safety floors and specifies repository overrides.
+# A-Dev Hardness Per-Repository Configuration
+# Schema: framework/hardness/ai-sdlc-schema.json
+# Specification: framework/hardness/09-per-repo-configuration.md
+# Trust Ladder: framework/hardness/08-trust-ladder-and-autonomy-levels.md
 
-schema_version: "1.0.0"
-metadata:
-  name: "repo-policy-template"
-  scope: "repository"
-  version: "1.0.0"
-  description: "Repository AI SDLC Policy extending organizational baseline"
-  owner: "repository-lead"
-  last_updated: "2026-08-01"
+version: "1.0.0"
+repository: "my-org/my-project"
 
-# Inheritance directive referencing organizational baseline
-extends:
-  baseline: "org/.github/.ai-sdlc.yaml"
-  version: ">=1.0.0"
-  mode: "fail_closed" # "fail_closed" (block on floor violation) | "clamp_and_warn"
+trust_ladder:
+  # Active operational level: shadow | suggest | auto-PR | auto-merge-low | auto-merge-all | auto-deploy
+  current_level: "auto-PR"
+  target_level: "auto-merge-low"
 
-# Repository-specific security gate specializations
-security_gates:
-  branch_protection:
-    require_reviews_min: 1 # Must be >= org floor
-  protected_paths:
-    # Org-level protected paths are automatically preserved; add repo-specific paths below:
-    - ".ai-sdlc.yaml"
-    - "docs/evidence/**"
+  # Evaluation window required before promotion review
+  evaluation_window:
+    min_pull_requests: 20
+    min_days: 14
 
-# Agent authority configuration
-agent_authority:
-  max_autonomous_risk_level: "low_risk_write" # Must be <= org ceiling
-  # Tool permissions: can only select a subset of org-allowed tools
-  allowed_tools:
-    - "read_file"
-    - "write_file"
-    - "edit_file"
-    - "list_dir"
-    - "search_text"
-    - "run_shell"
-    - "git"
-    - "code_query"
+  # Promotion metric gates
+  promotion_gates:
+    min_merge_success_rate: 0.90      # Minimum PR merge rate without rework (90%)
+    max_revert_rate: 0.00             # Maximum allowed revert rate (0%)
+    max_escalation_rate: 0.05         # Maximum allowed human takeover rate (5%)
+    min_ci_first_pass_rate: 0.85      # Minimum CI first-pass pass rate (85%)
+    min_policy_conformance_rate: 1.00 # 100% compliance with hardness policies
 
-# Quality floors: can only tighten (increase) strictness
-quality_floors:
-  test_enforcement:
-    require_tests_for_new_features: true
-    min_coverage_percent: 80.0 # Must be >= org floor
-  atomic_iterations:
-    max_diff_lines_per_iteration: 500 # Must be <= org ceiling
-    max_files_per_iteration: 20
+  # Demotion triggers on quality SLO breach or security violation
+  demotion_triggers:
+    max_revert_rate_slo: 0.02         # Demote if revert rate exceeds 2%
+    max_consecutive_failures: 2       # Demote if 2 consecutive builds fail
+    max_escalation_rate_slo: 0.10     # Demote if escalation rate exceeds 10%
+    instant_demotion_on_security_breach: true
+    demote_to_level: "suggest"
 
-# Review and audit requirements
-review_and_audit:
-  pr_review_workflow:
-    enforce_5_step_review: true
-    require_impact_analysis: true
-  audit:
-    structured_logging_enabled: true
-    retention_min_days: 90
+  # Recovery protocol after demotion
+  rehabilitation:
+    cooldown_days: 7
+    required_clean_runs: 10
+    requires_human_signoff: true
+
+risk_boundaries:
+  # Paths eligible for autonomous merge at Level 3 (auto-merge-low)
+  low_risk_paths:
+    - "docs/**"
+    - "*.md"
+    - "tests/fixtures/**"
+    - "starter-kit/**"
+
+  # Paths strictly requiring human review and approval
+  high_risk_paths:
+    - ".github/workflows/**"
+    - "security/**"
+    - "auth/**"
+    - "billing/**"
+    - "migrations/**"
+
+  # Target branches governed by hardness policies
+  protected_branches:
+    - "main"
+    - "release/*"
+
+automated_merge_rules:
+  require_all_ci_passing: true
+  require_zero_blocking_reviews: true
+  require_no_unresolved_comments: true
+  allowed_merge_methods:
+    - "squash"
+    - "merge"
+  delete_branch_after_merge: true
+
+deployment:
+  enabled: false
+  target_environments:
+    - "staging"
+  canary_verification_duration_minutes: 15
+  auto_rollback_on_health_failure: true
+
+audit_and_observability:
+  log_decisions: true
+  evidence_retention: "repository-record"
+  metrics_collection: "git-native"

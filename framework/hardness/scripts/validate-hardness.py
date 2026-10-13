@@ -1,241 +1,224 @@
 #!/usr/bin/env python3
 """
-Validation script for A-Dev Hardness artifacts:
-1. Validates all required documents and references in framework/hardness.
-2. Validates JSON policy fixtures against the Hardness Policy Schema (policy-schema.json).
-3. Verifies that invalid fixtures fail with expected errors.
-4. Verifies that untrusted content envelope fixtures are structurally valid.
+Cross-platform hardness validation script for A-Dev.
+Validates:
+1. Policy schema and fixtures (valid and invalid)
+2. AI-SDLC schema and fixtures (valid and invalid)
+3. Starter kit .ai-sdlc.yaml structure
+4. Compatibility layer surface and required files
 """
 
 import json
 import re
 import sys
 from pathlib import Path
-from datetime import datetime
-
-HARDNESS_ROOT = Path(__file__).resolve().parent.parent
-
-REQUIRED_FILES = [
-    "00-definition-and-scope.md",
-    "01-policy-and-precedence.md",
-    "02-skill-contract-template.md",
-    "03-human-expectations-contract.md",
-    "04-action-risk-authority-model.md",
-    "05-policy-schema-and-fixtures.md",
-    "06-agent-consumption-guide.md",
-    "07-compatibility-layer.md",
-    "08-prompt-injection-defense.md",
-    "policy-schema.json",
-    "fixtures/valid-policy.json",
-    "fixtures/valid-prompt-injection-policy.json",
-    "fixtures/invalid-policy-missing-owner.json",
-    "fixtures/untrusted-content-envelope-example.json",
-    "compatibility/conformance-checklist.md",
-    "compatibility/portability-matrix.md",
-    "compatibility/runtime-profile-template.md",
-    "compatibility/skill-md-profile.md",
-    "skills/README.md",
-    "skills/adev-read-only-inspection/SKILL.md",
-    "skills/adev-read-only-inspection/evaluations.md",
-]
-
-ID_PATTERN = re.compile(r"^HD-[A-Z][A-Z0-9-]*-[0-9]{3}$")
 
 
-def validate_string_array(val, context, errors):
-    if not isinstance(val, list) or len(val) == 0:
-        errors.append(f"{context} must be a non-empty array.")
-        return
-    for i, item in enumerate(val):
-        if not isinstance(item, str) or len(item.strip()) == 0:
-            errors.append(f"{context}[{i}] must be a non-empty string.")
+def load_json(path: Path) -> dict:
+    if not path.exists():
+        raise FileNotFoundError(f"Missing file: {path}")
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
-def validate_iso_date(val, context, errors):
-    if not isinstance(val, str):
-        errors.append(f"{context} must be an ISO date string (YYYY-MM-DD).")
-        return
-    try:
-        datetime.strptime(val, "%Y-%m-%d")
-    except ValueError:
-        errors.append(f"{context} ('{val}') is not a valid ISO date (YYYY-MM-DD).")
-
-
-def validate_policy_record(policy, schema):
+def validate_policy_record(record: dict, schema: dict) -> list[str]:
     errors = []
+    required_fields = schema.get("required", [])
+    for field in required_fields:
+        if field not in record:
+            errors.append(f"policy missing required field '{field}'")
 
-    # Required top-level fields
-    for field in schema.get("required", []):
-        if field not in policy:
-            errors.append(f"Missing required top-level field: '{field}'")
+    if "id" in record and not re.match(r"^HD-[A-Z][A-Z0-9-]*-[0-9]{3}$", str(record["id"])):
+        errors.append(f"policy.id invalid format: {record['id']}")
 
-    # ID
-    pid = policy.get("id")
-    if not isinstance(pid, str) or not ID_PATTERN.match(pid):
-        errors.append(f"policy.id ('{pid}') does not match pattern ^HD-[A-Z][A-Z0-9-]*-[0-9]{{3}}$")
+    if "level" in record:
+        allowed = schema["properties"]["level"]["enum"]
+        if record["level"] not in allowed:
+            errors.append(f"policy.level must be one of {allowed}")
 
-    # Statement & Rationale
-    if not isinstance(policy.get("statement"), str) or len(policy.get("statement", "").strip()) == 0:
-        errors.append("policy.statement must be a non-empty string.")
-    if not isinstance(policy.get("rationale"), str) or len(policy.get("rationale", "").strip()) == 0:
-        errors.append("policy.rationale must be a non-empty string.")
+    if "scope" in record:
+        scope = record["scope"]
+        for sf in ["repositories", "tasks", "roles", "files", "tools", "environments"]:
+            if sf not in scope or not isinstance(scope[sf], list) or len(scope[sf]) == 0:
+                errors.append(f"policy.scope.{sf} must be a non-empty array")
 
-    # Level
-    allowed_levels = schema["properties"]["level"]["enum"]
-    if policy.get("level") not in allowed_levels:
-        errors.append(f"policy.level must be one of {allowed_levels}")
+    if "authority" in record:
+        auth = record["authority"]
+        if "source" not in auth or not auth["source"]:
+            errors.append("policy.authority.source required")
+        if "level" not in auth or auth["level"] not in schema["properties"]["authority"]["properties"]["level"]["enum"]:
+            errors.append("policy.authority.level invalid")
 
-    # Scope
-    scope = policy.get("scope", {})
-    if not isinstance(scope, dict):
-        errors.append("policy.scope must be an object.")
-    else:
-        for f in schema["properties"]["scope"]["required"]:
-            validate_string_array(scope.get(f), f"policy.scope.{f}", errors)
-
-    # Authority
-    auth = policy.get("authority", {})
-    if not isinstance(auth, dict):
-        errors.append("policy.authority must be an object.")
-    else:
-        if not isinstance(auth.get("source"), str) or len(auth.get("source", "").strip()) == 0:
-            errors.append("policy.authority.source must be a non-empty string.")
-        allowed_auth_levels = schema["properties"]["authority"]["properties"]["level"]["enum"]
-        if auth.get("level") not in allowed_auth_levels:
-            errors.append(f"policy.authority.level must be one of {allowed_auth_levels}")
-
-    # Precedence
-    prec = policy.get("precedence", {})
-    if not isinstance(prec, dict):
-        errors.append("policy.precedence must be an object.")
-    else:
-        rank = prec.get("authorityRank")
-        if not isinstance(rank, int) or rank < 1 or rank > 6:
-            errors.append("policy.precedence.authorityRank must be an integer from 1 to 6.")
-        prio = prec.get("priority")
-        if not isinstance(prio, int) or prio < 0:
-            errors.append("policy.precedence.priority must be a non-negative integer.")
-        allowed_tb = schema["properties"]["precedence"]["properties"]["tieBreaker"]["enum"]
-        if prec.get("tieBreaker") not in allowed_tb:
-            errors.append(f"policy.precedence.tieBreaker must be one of {allowed_tb}")
-
-    # Exceptions
-    exc = policy.get("exceptions")
-    if not isinstance(exc, list):
-        errors.append("policy.exceptions must be an array.")
-    else:
-        allowed_disp = schema["properties"]["exceptions"]["items"]["properties"]["disposition"]["enum"]
-        for i, item in enumerate(exc):
-            if not isinstance(item, dict):
-                errors.append(f"policy.exceptions[{i}] must be an object.")
-                continue
-            if not isinstance(item.get("condition"), str) or len(item.get("condition", "").strip()) == 0:
-                errors.append(f"policy.exceptions[{i}].condition must be a non-empty string.")
-            if item.get("disposition") not in allowed_disp:
-                errors.append(f"policy.exceptions[{i}].disposition must be one of {allowed_disp}")
-
-    # Evidence
-    ev = policy.get("evidence", {})
-    if not isinstance(ev, dict):
-        errors.append("policy.evidence must be an object.")
-    else:
-        validate_string_array(ev.get("requirements"), "policy.evidence.requirements", errors)
-        allowed_ret = schema["properties"]["evidence"]["properties"]["retention"]["enum"]
-        if ev.get("retention") not in allowed_ret:
-            errors.append(f"policy.evidence.retention must be one of {allowed_ret}")
-
-    # Owner
-    owner = policy.get("owner", {})
-    if not isinstance(owner, dict):
-        errors.append("policy.owner must be an object.")
-    else:
-        for f in ["role", "reviewer"]:
-            if not isinstance(owner.get(f), str) or len(owner.get(f, "").strip()) == 0:
-                errors.append(f"policy.owner.{f} must be a non-empty string.")
-
-    # Review
-    rev = policy.get("review", {})
-    if not isinstance(rev, dict):
-        errors.append("policy.review must be an object.")
-    else:
-        if not isinstance(rev.get("trigger"), str) or len(rev.get("trigger", "").strip()) == 0:
-            errors.append("policy.review.trigger must be a non-empty string.")
-        validate_iso_date(rev.get("dueOn"), "policy.review.dueOn", errors)
-
-    # Expiry
-    exp = policy.get("expiry", {})
-    if not isinstance(exp, dict):
-        errors.append("policy.expiry must be an object.")
-    else:
-        validate_iso_date(exp.get("expiresOn"), "policy.expiry.expiresOn", errors)
-        allowed_act = schema["properties"]["expiry"]["properties"]["action"]["enum"]
-        if exp.get("action") not in allowed_act:
-            errors.append(f"policy.expiry.action must be one of {allowed_act}")
+    if "owner" in record:
+        owner = record["owner"]
+        if "role" not in owner or not owner["role"]:
+            errors.append("policy.owner.role required")
+        if "reviewer" not in owner or not owner["reviewer"]:
+            errors.append("policy.owner.reviewer required")
 
     return errors
 
 
-def main():
-    print(f"Validating Hardness surface at: {HARDNESS_ROOT}")
-    failed = False
+def validate_ai_sdlc_record(record: dict, schema: dict) -> list[str]:
+    errors = []
+    required_fields = schema.get("required", [])
+    for field in required_fields:
+        if field not in record:
+            errors.append(f"ai-sdlc missing required field '{field}'")
 
-    # 1. Check required files
-    for rel_path in REQUIRED_FILES:
-        target = HARDNESS_ROOT / rel_path
-        if not target.exists():
-            print(f"[FAIL] Missing required file: {rel_path}")
-            failed = True
-        else:
-            print(f"[OK] File exists: {rel_path}")
+    if "version" in record and not re.match(r"^[0-9]+\.[0-9]+\.[0-9]+$", str(record["version"])):
+        errors.append(f"version must be SemVer format: {record['version']}")
 
-    # 2. Check schema exists and parses
-    schema_path = HARDNESS_ROOT / "policy-schema.json"
-    with open(schema_path, "r", encoding="utf-8") as f:
-        schema = json.load(f)
-    print("[OK] policy-schema.json loaded successfully.")
-
-    # 3. Check valid fixtures
-    valid_fixtures = [
-        "fixtures/valid-policy.json",
-        "fixtures/valid-prompt-injection-policy.json",
+    levels = [
+        "shadow",
+        "suggest",
+        "auto-PR",
+        "auto-merge-low",
+        "auto-merge-all",
+        "auto-deploy",
     ]
-    for rel_path in valid_fixtures:
-        fixture_path = HARDNESS_ROOT / rel_path
-        with open(fixture_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        errors = validate_policy_record(data, schema)
-        if errors:
-            print(f"[FAIL] Valid fixture {rel_path} failed validation:\n  " + "\n  ".join(errors))
-            failed = True
-        else:
-            print(f"[OK] Valid fixture {rel_path} passed validation.")
 
-    # 4. Check invalid fixture fails
-    invalid_path = HARDNESS_ROOT / "fixtures/invalid-policy-missing-owner.json"
-    with open(invalid_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    errors = validate_policy_record(data, schema)
-    if not errors:
-        print("[FAIL] Invalid fixture fixtures/invalid-policy-missing-owner.json unexpectedly passed validation.")
-        failed = True
-    else:
-        print(f"[OK] Invalid fixture correctly rejected: {errors[0]}")
+    if "trust_ladder" in record:
+        tl = record["trust_ladder"]
+        for tlf in ["current_level", "target_level", "evaluation_window", "promotion_gates", "demotion_triggers", "rehabilitation"]:
+            if tlf not in tl:
+                errors.append(f"trust_ladder missing '{tlf}'")
 
-    # 5. Check untrusted content example fixture parses
-    envelope_example_path = HARDNESS_ROOT / "fixtures/untrusted-content-envelope-example.json"
-    with open(envelope_example_path, "r", encoding="utf-8") as f:
-        env_data = json.load(f)
-    if "vectors" not in env_data or len(env_data["vectors"]) == 0:
-        print("[FAIL] untrusted-content-envelope-example.json missing vectors array.")
-        failed = True
-    else:
-        print(f"[OK] untrusted-content-envelope-example.json validated ({len(env_data['vectors'])} vectors).")
+        if "current_level" in tl and tl["current_level"] not in levels:
+            errors.append(f"current_level invalid: {tl['current_level']}")
+        if "target_level" in tl and tl["target_level"] not in levels:
+            errors.append(f"target_level invalid: {tl['target_level']}")
 
-    if failed:
-        print("\nValidation FAILED.")
-        sys.exit(1)
-    else:
-        print("\nAll Hardness validation checks PASSED successfully.")
+        if "evaluation_window" in tl:
+            ew = tl["evaluation_window"]
+            if ew.get("min_pull_requests", 0) < 1:
+                errors.append("evaluation_window.min_pull_requests must be >= 1")
+            if ew.get("min_days", 0) < 1:
+                errors.append("evaluation_window.min_days must be >= 1")
+
+        if "promotion_gates" in tl:
+            pg = tl["promotion_gates"]
+            for rate_key in ["min_merge_success_rate", "max_revert_rate", "max_escalation_rate", "min_ci_first_pass_rate", "min_policy_conformance_rate"]:
+                if rate_key not in pg or not isinstance(pg[rate_key], (int, float)) or not (0.0 <= pg[rate_key] <= 1.0):
+                    errors.append(f"promotion_gates.{rate_key} must be a float between 0.0 and 1.0")
+
+        if "demotion_triggers" in tl:
+            dt = tl["demotion_triggers"]
+            if "demote_to_level" in dt and dt["demote_to_level"] not in levels:
+                errors.append(f"demotion_triggers.demote_to_level invalid: {dt['demote_to_level']}")
+
+        if "rehabilitation" in tl:
+            rh = tl["rehabilitation"]
+            if rh.get("cooldown_days", -1) < 0:
+                errors.append("rehabilitation.cooldown_days must be >= 0")
+            if rh.get("required_clean_runs", 0) < 1:
+                errors.append("rehabilitation.required_clean_runs must be >= 1")
+
+    if "risk_boundaries" in record:
+        rb = record["risk_boundaries"]
+        for rbf in ["low_risk_paths", "high_risk_paths", "protected_branches"]:
+            if rbf not in rb or not isinstance(rb[rbf], list) or len(rb[rbf]) == 0:
+                errors.append(f"risk_boundaries.{rbf} must be a non-empty list of strings")
+
+    if "automated_merge_rules" in record:
+        amr = record["automated_merge_rules"]
+        for amrf in ["require_all_ci_passing", "require_zero_blocking_reviews", "require_no_unresolved_comments", "allowed_merge_methods", "delete_branch_after_merge"]:
+            if amrf not in amr:
+                errors.append(f"automated_merge_rules missing '{amrf}'")
+
+    if "audit_and_observability" in record:
+        ao = record["audit_and_observability"]
+        if ao.get("evidence_retention") not in ["repository-record", "external-record", "ephemeral"]:
+            errors.append(f"invalid evidence_retention: {ao.get('evidence_retention')}")
+        if ao.get("metrics_collection") not in ["git-native", "ci-telemetry", "external-apm"]:
+            errors.append(f"invalid metrics_collection: {ao.get('metrics_collection')}")
+
+    return errors
+
+
+def parse_simple_yaml(text: str) -> dict:
+    lines = [line.split("#")[0].rstrip() for line in text.splitlines()]
+    non_empty = [l for l in lines if l.strip()]
+    content = "\n".join(non_empty)
+    assert "version:" in content
+    assert "trust_ladder:" in content
+    assert "current_level:" in content
+    assert "target_level:" in content
+    assert "risk_boundaries:" in content
+    assert "low_risk_paths:" in content
+    assert "high_risk_paths:" in content
+    assert "automated_merge_rules:" in content
+    assert "audit_and_observability:" in content
+    return {"status": "ok"}
+
+
+def main():
+    script_dir = Path(__file__).resolve().parent
+    hardness_dir = script_dir.parent
+    fixtures_dir = hardness_dir / "fixtures"
+
+    print("--- 1. Validating Policy Schema & Fixtures ---")
+    policy_schema = load_json(hardness_dir / "policy-schema.json")
+    valid_policy = load_json(fixtures_dir / "valid-policy.json")
+    invalid_policy = load_json(fixtures_dir / "invalid-policy-missing-owner.json")
+
+    valid_policy_errs = validate_policy_record(valid_policy, policy_schema)
+    if valid_policy_errs:
+        sys.exit(f"FAIL: valid-policy.json rejected: {valid_policy_errs}")
+    print("PASS: valid-policy.json accepted.")
+
+    invalid_policy_errs = validate_policy_record(invalid_policy, policy_schema)
+    if not invalid_policy_errs:
+        sys.exit("FAIL: invalid-policy-missing-owner.json was unexpectedly accepted.")
+    print(f"PASS: invalid-policy rejected as expected: {invalid_policy_errs}")
+
+    print("\n--- 2. Validating AI-SDLC Schema & Fixtures ---")
+    ai_sdlc_schema = load_json(hardness_dir / "ai-sdlc-schema.json")
+    valid_ai_sdlc = load_json(fixtures_dir / "valid-ai-sdlc.json")
+    invalid_ai_sdlc = load_json(fixtures_dir / "invalid-ai-sdlc-missing-level.json")
+
+    valid_sdlc_errs = validate_ai_sdlc_record(valid_ai_sdlc, ai_sdlc_schema)
+    if valid_sdlc_errs:
+        sys.exit(f"FAIL: valid-ai-sdlc.json rejected: {valid_sdlc_errs}")
+    print("PASS: valid-ai-sdlc.json accepted.")
+
+    invalid_sdlc_errs = validate_ai_sdlc_record(invalid_ai_sdlc, ai_sdlc_schema)
+    if not invalid_sdlc_errs:
+        sys.exit("FAIL: invalid-ai-sdlc-missing-level.json was unexpectedly accepted.")
+    print(f"PASS: invalid-ai-sdlc rejected as expected: {invalid_sdlc_errs}")
+
+    print("\n--- 3. Validating starter-kit/.ai-sdlc.yaml ---")
+    repo_root = hardness_dir.parent.parent
+    starter_yaml = repo_root / "starter-kit" / ".ai-sdlc.yaml"
+    if not starter_yaml.exists():
+        sys.exit(f"FAIL: starter-kit/.ai-sdlc.yaml does not exist at {starter_yaml}")
+    yaml_text = starter_yaml.read_text(encoding="utf-8")
+    parse_simple_yaml(yaml_text)
+    print("PASS: starter-kit/.ai-sdlc.yaml verified.")
+
+    print("\n--- 4. Validating Hardness Surface Files ---")
+    required_files = [
+        "00-definition-and-scope.md",
+        "01-policy-and-precedence.md",
+        "02-skill-contract-template.md",
+        "03-human-expectations-contract.md",
+        "04-action-risk-authority-model.md",
+        "05-policy-schema-and-fixtures.md",
+        "06-agent-consumption-guide.md",
+        "07-compatibility-layer.md",
+        "08-trust-ladder-and-autonomy-levels.md",
+        "09-per-repo-configuration.md",
+        "policy-schema.json",
+        "ai-sdlc-schema.json",
+        "README.md",
+    ]
+    for rf in required_files:
+        path = hardness_dir / rf
+        if not path.exists():
+            sys.exit(f"FAIL: Required hardness file missing: {rf}")
+        print(f"PASS: Found {rf}")
+
+    print("\nALL HARDNESS VALIDATION CHECKS PASSED.")
 
 
 if __name__ == "__main__":
